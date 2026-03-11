@@ -104,6 +104,14 @@
   }
   .search-wrap input:focus { border-color: var(--accent); }
   .search-wrap::before { content: '⌕'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text2); font-size: 16px; pointer-events: none; }
+  .sort-bar {
+    padding: 8px 20px; background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .sort-label {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-size: 10px; color: var(--text2); letter-spacing: .5px; text-transform: uppercase; white-space: nowrap;
+  }
 
   /* ── STATS BAR ── */
   .stats { padding: 10px 20px; display: flex; gap: 20px; flex-wrap: wrap; }
@@ -354,7 +362,8 @@
     .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
     .list-row { grid-template-columns: 28px 1fr auto; }
     .list-tags, .list-actions { display: none; }
-    .version-badge, .last-modified-badge { display: none; }
+    header { flex-wrap: wrap; row-gap: 6px; }
+    .sort-label { display: none; }
   }
 </style>
 </head>
@@ -387,6 +396,20 @@
   <button class="filter-chip" data-filter="alert">⚠ Presque vides</button>
   <div class="filter-sep"></div>
   <div class="search-wrap"><input type="text" id="searchInput" placeholder="Rechercher…"></div>
+</div>
+
+<div class="sort-bar" id="sortBar">
+  <span class="sort-label">Grouper :</span>
+  <button class="filter-chip active" data-group="material+color">Mat.+Couleur</button>
+  <button class="filter-chip" data-group="material">Matière</button>
+  <button class="filter-chip" data-group="color">Couleur</button>
+  <div class="filter-sep"></div>
+  <span class="sort-label">Trier :</span>
+  <button class="filter-chip active" data-sort="default">Défaut</button>
+  <button class="filter-chip" data-sort="brand">Marque</button>
+  <button class="filter-chip" data-sort="qty-asc">Qté ↑</button>
+  <button class="filter-chip" data-sort="qty-desc">Qté ↓</button>
+  <button class="filter-chip" data-sort="date">Date</button>
 </div>
 
 <div class="stats" id="statsBar"></div>
@@ -561,6 +584,16 @@ function getTextColor(hex) {
   return (0.299*r + 0.587*g + 0.114*b) / 255 > 0.55 ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.92)';
 }
 
+// ─── UTILITAIRE : DISTANCE COULEUR ───────────────────────────────────
+function colorDistance(h1, h2) {
+  const p = h => { const x = h.replace('#',''); return [parseInt(x.slice(0,2),16), parseInt(x.slice(2,4),16), parseInt(x.slice(4,6),16)]; };
+  const [r1,g1,b1] = p(h1), [r2,g2,b2] = p(h2);
+  return Math.sqrt((r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2);
+}
+function closestBaseColorName(hex) {
+  return BASE_COLORS.reduce((best, c) => colorDistance(hex, c.hex) < colorDistance(hex, best.hex) ? c : best).name;
+}
+
 // ─── CONSTANTES ───────────────────────────────────────────────────────
 const BASE_COLORS = [
   {name:'Noir',hex:'#1a1a1a'},{name:'Blanc',hex:'#f0eeea'},{name:'Gris',hex:'#7a7a82'},
@@ -602,6 +635,8 @@ let selectedColor   = '';
 let editingId       = null;
 let expandedGroups  = new Set();
 let currentJournalFilter = 'all';
+let currentGroupMode = 'material+color'; // 'material' | 'color' | 'material+color'
+let currentSortMode  = 'default';        // 'default' | 'brand' | 'material' | 'color' | 'qty-asc' | 'qty-desc' | 'date'
 
 // ─── PERSISTANCE ──────────────────────────────────────────────────────
 function save()         { localStorage.setItem('filstock_v1', JSON.stringify(spools)); }
@@ -815,11 +850,28 @@ function renderCard(s) {
   </div>`;
 }
 
+// ─── TRI ─────────────────────────────────────────────────────────────
+function getSorted(items) {
+  if (currentSortMode === 'default') return items;
+  return [...items].sort((a, b) => {
+    if (currentSortMode === 'brand')    return a.brand.localeCompare(b.brand);
+    if (currentSortMode === 'material') return a.material.localeCompare(b.material);
+    if (currentSortMode === 'color')    return a.colorName.localeCompare(b.colorName);
+    if (currentSortMode === 'qty-asc')  return a.qty - b.qty;
+    if (currentSortMode === 'qty-desc') return b.qty - a.qty;
+    if (currentSortMode === 'date')     return new Date(b.createdAt) - new Date(a.createdAt);
+    return 0;
+  });
+}
+
 // ─── RENDU GROUPE CARTE (bobines redondantes) ─────────────────────────
 function getSpoolGroups(items) {
+  const sorted = getSorted(items);
   const map = new Map();
-  for (const s of items) {
-    const key = `${s.material}::${s.colorName}`;
+  for (const s of sorted) {
+    const key = currentGroupMode === 'material' ? s.material
+              : currentGroupMode === 'color'    ? s.colorName
+              : `${s.material}::${s.colorName}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(s);
   }
@@ -1089,7 +1141,7 @@ function saveSpool() {
   const traits   = [...selectedTraits];
   const newSupportId = document.getElementById('fSupport').value || null;
   const colorObj = getAllColors().find(c => c.hex === selectedColor);
-  const colorName = colorObj ? colorObj.name : 'Personnalisée';
+  const colorName = colorObj ? colorObj.name : closestBaseColorName(selectedColor);
 
   if (editingId) {
     const idx = spools.findIndex(s => s.id === editingId);
@@ -1208,13 +1260,29 @@ document.getElementById('importBtn').addEventListener('click', () => document.ge
 document.getElementById('importFile').addEventListener('change', e => { importJSON(e.target.files[0]); e.target.value = ''; });
 
 // ─── FILTRES & RECHERCHE ──────────────────────────────────────────────
-document.querySelectorAll('.filter-chip').forEach(btn => {
+document.querySelectorAll('.filters .filter-chip').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.filters .filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active'); currentFilter = btn.dataset.filter; render();
   });
 });
 document.getElementById('searchInput').addEventListener('input', e => { searchQ = e.target.value; render(); });
+
+// ─── TRI & GROUPEMENT ─────────────────────────────────────────────────
+document.getElementById('sortBar').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  if (chip.dataset.group !== undefined) {
+    currentGroupMode = chip.dataset.group;
+    document.querySelectorAll('#sortBar [data-group]').forEach(b => b.classList.toggle('active', b.dataset.group === currentGroupMode));
+    expandedGroups.clear();
+    render();
+  } else if (chip.dataset.sort !== undefined) {
+    currentSortMode = chip.dataset.sort;
+    document.querySelectorAll('#sortBar [data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === currentSortMode));
+    render();
+  }
+});
 
 // ─── TOGGLE BOUTONS ───────────────────────────────────────────────────
 document.addEventListener('click', e => {
@@ -1371,6 +1439,10 @@ function closeSettings() { document.getElementById('settingsOverlay').classList.
 
 document.getElementById('newMaterial').addEventListener('keydown', e => { if (e.key==='Enter') addMaterial(); });
 document.getElementById('newColorName').addEventListener('keydown', e => { if (e.key==='Enter') addColor(); });
+document.getElementById('newColorHex').addEventListener('input', function() {
+  const nameInput = document.getElementById('newColorName');
+  if (!nameInput.value.trim()) nameInput.value = closestBaseColorName(this.value);
+});
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
 // ─── SUPPORTS ─────────────────────────────────────────────────────────
