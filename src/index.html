@@ -626,12 +626,13 @@ const APP_VERSION = '2.0';
 // Détecte si on tourne dans Tauri (app native) ou dans un navigateur (fallback).
 // En mode Tauri : lit filstock_data.json depuis AppData au démarrage.
 // En mode navigateur : utilise localStorage comme avant (rétrocompatibilité totale).
+// withGlobalTauri: true dans tauri.conf.json expose window.__TAURI__.fs et window.__TAURI__.dialog.
 const __TAURI_CTX = typeof window.__TAURI_INTERNALS__ !== 'undefined';
 let _appData = {};
 let _flushScheduled = false;
 
 if (__TAURI_CTX) {
-  const { readTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+  const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
   try {
     const raw = await readTextFile('filstock_data.json', { baseDir: BaseDirectory.AppData });
     _appData = JSON.parse(raw);
@@ -642,7 +643,7 @@ if (__TAURI_CTX) {
 // Fire-and-forget : les mutations JS restent synchrones, la persistance est async.
 async function _doFlush() {
   if (!__TAURI_CTX) return;
-  const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+  const { writeTextFile, BaseDirectory } = window.__TAURI__.fs;
   await writeTextFile('filstock_data.json', JSON.stringify(_appData), { baseDir: BaseDirectory.AppData });
   _flushScheduled = false;
 }
@@ -1367,8 +1368,8 @@ async function exportJSON() {
   const data = { app:'FilStock Julok', version:1, appVersion:APP_VERSION, exportedAt: new Date().toISOString(), spools, supports };
   const json = JSON.stringify(data, null, 2);
   if (__TAURI_CTX) {
-    const { save: dialogSave } = await import('@tauri-apps/plugin-dialog');
-    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    const { save: dialogSave } = window.__TAURI__.dialog;
+    const { writeTextFile } = window.__TAURI__.fs;
     const path = await dialogSave({
       filters: [{ name: 'JSON', extensions: ['json'] }],
       defaultPath: `filstock-${new Date().toISOString().slice(0,10)}.json`
@@ -1448,8 +1449,8 @@ function importJSON(file) {
 document.getElementById('exportBtn').addEventListener('click', exportJSON);
 document.getElementById('importBtn').addEventListener('click', async () => {
   if (__TAURI_CTX) {
-    const { open: dialogOpen } = await import('@tauri-apps/plugin-dialog');
-    const { readTextFile } = await import('@tauri-apps/plugin-fs');
+    const { open: dialogOpen } = window.__TAURI__.dialog;
+    const { readTextFile } = window.__TAURI__.fs;
     const path = await dialogOpen({ filters: [{ name: 'JSON', extensions: ['json'] }] });
     if (path) {
       const content = await readTextFile(path);
@@ -1757,6 +1758,18 @@ if (!spools.length) {
   ];
   save();
 }
+
+// ─── EXPOSITION GLOBALE ───────────────────────────────────────────────
+// Requis car le script est type="module" : les fonctions sont dans le scope du module,
+// pas dans window. Les onclick="..." du HTML statique et des templates générés
+// ont besoin de les trouver dans le scope global.
+Object.assign(window, {
+  openEdit, openAdd, closeModal, saveSpool, deleteSpool, duplicateSpool,
+  closeSettings, addSupport, addMaterial, addColor,
+  closeJournal, clearJournal, setJournalFilter,
+  toggleTrait, removeMaterial, removeColor, deleteSupport,
+  selectColor,
+});
 
 // ─── DÉMARRAGE ────────────────────────────────────────────────────────
 document.getElementById('versionBadge').textContent = 'v' + APP_VERSION;

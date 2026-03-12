@@ -83,6 +83,24 @@ Toutes les données sont stockées dans un seul fichier `filstock_data.json` dan
 }
 ```
 
+## APIs Tauri — accès sans bundler
+
+`withGlobalTauri: true` dans `tauri.conf.json` expose les plugins sur `window.__TAURI__` :
+
+```js
+// FS
+const { readTextFile, writeTextFile, BaseDirectory } = window.__TAURI__.fs;
+
+// Dialog
+const { save, open } = window.__TAURI__.dialog;
+```
+
+**Ne jamais utiliser** `import('@tauri-apps/plugin-fs')` — sans bundler, la résolution npm des package names échoue dans la WebView.
+
+## Fonctions globales (type="module")
+
+Le script principal est `type="module"`. Toutes les fonctions appelées depuis les `onclick="..."` du HTML doivent être exposées via `Object.assign(window, { ... })` à la fin du script (voir bloc "EXPOSITION GLOBALE" dans `src/index.html`).
+
 ## Règle de persistance — OBLIGATOIRE
 
 Chaque mutation de données doit :
