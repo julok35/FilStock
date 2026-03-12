@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FilStock Julok</title>
+<style>
+  :root {
+    /* ── Anthropic / Claude warm dark palette ── */
+    --bg:     #141413;   /* fond principal — noir chaud Claude */
+    --bg2:    #1c1b18;   /* cartes, panels */
+    --bg3:    #262420;   /* inputs, zones hover */
+    --border: #3a3733;   /* séparateurs */
+    --text:   #ede8e1;   /* texte primaire */
+    --text2:  #9a9589;   /* texte secondaire */
+    /* Crail terracotta — couleur officielle Claude */
+    --accent:  #c15f3c;
+    --accent2: #d4805e;  /* hover */
+    /* Sémantique (tons réchauffés) */
+    --danger: #e05252;
+    --warn:   #d4952c;
+    --ok:     #2db67d;
+    /* Layout */
+    --radius: 12px;      /* légèrement réduit vs 14px */
+    /* Ombre multi-couche chaude (contact + ambiante) */
+    --shadow: 0 1px 3px rgba(0,0,0,.28), 0 6px 20px rgba(0,0,0,.22);
+    --btn-size: 36px;
+    --btn-font: 18px;
+    --btn-add-font: 13px;
+    --btn-small-size: 28px;
+    --btn-small-font: 13px;
+    --pastille-card-font: 26px;
+    --pastille-list-font: 13px;
+    --app-font: 14px;
+  }
+  [data-theme="light"] {
+    /* ── Anthropic / Claude warm light palette ── */
+    --bg:     #f4f3ee;   /* Pampas crème — fond officiel Claude */
+    --bg2:    #ffffff;
+    --bg3:    #eae8e1;
+    --border: #d4d1c7;
+    --text:   #1a1714;
+    --text2:  #6b6659;
+    --shadow: 0 1px 3px rgba(0,0,0,.07), 0 6px 20px rgba(0,0,0,.05);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    /* Inter prioritaire (présent nativement sur macOS 14+ / iOS 17+ / Windows 11) */
+    font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: var(--app-font); background: var(--bg); color: var(--text);
+    min-height: 100vh; transition: background .25s, color .25s;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 0 20px; display: flex; align-items: center; gap: 12px;
+    height: auto; min-height: 58px; flex-wrap: wrap;
+  }
+  .logo { font-size: 18px; font-weight: 800; letter-spacing: -.5px; flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .logo span { color: var(--accent); }
+  .logo-sub { font-size: 11px; color: var(--text2); font-weight: 400; }
+  .version-badge {
+    font-size: 10px; color: var(--text2);
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    background: var(--bg3); padding: 2px 8px; border-radius: 20px;
+    border: 1px solid var(--border); letter-spacing: .3px;
+  }
+  .last-modified-badge {
+    font-size: 10px; color: var(--text2);
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    background: var(--bg3); padding: 2px 9px; border-radius: 20px;
+    border: 1px solid var(--border); letter-spacing: .3px;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .last-modified-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-icon {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text2); cursor: pointer; border-radius: 9px;
+    width: var(--btn-size); height: var(--btn-size);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn-icon:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-add {
+    background: var(--accent); border: none; color: #fff;
+    font-family: inherit; font-weight: 600; font-size: var(--btn-add-font);
+    padding: 0 16px; height: var(--btn-size); border-radius: 9px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: background .15s;
+    white-space: nowrap; letter-spacing: .01em;
+  }
+  .btn-add:hover { background: var(--accent2); }
+
+  /* ── FILTERS BAR ── */
+  .filters {
+    padding: 12px 20px; background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-chip {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-size: 11px; padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: all .15s;
+  }
+  .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* Compteur de bobines affiché automatiquement via data-count */
+  .filter-chip[data-count]::after { content: ' ' attr(data-count); opacity: .65; font-size: 10px; }
+  .filter-sep { width: 1px; height: 20px; background: var(--border); }
+  .search-wrap { position: relative; margin-left: auto; }
+  .search-wrap input {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-size: 12px; padding: 6px 12px 6px 32px; border-radius: 20px; outline: none; width: 160px;
+    transition: border-color .15s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap::before { content: '⌕'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text2); font-size: 16px; pointer-events: none; }
+  .sort-bar {
+    padding: 8px 20px; background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .sort-label {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-size: 10px; color: var(--text2); letter-spacing: .5px; text-transform: uppercase; white-space: nowrap;
+  }
+
+  /* ── STATS BAR ── */
+  .stats { padding: 10px 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .stat { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); }
+  .stat strong { color: var(--text); font-family: inherit; font-size: 15px; font-weight: 700; }
+
+  /* ── GRID / LIST ── */
+  .view-container { padding: 0 20px 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s;
+    position: relative;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent); }
+  .card.alert { border-color: var(--danger); }
+  .card.alert::after {
+    content: '⚠ PRESQUE VIDE'; position: absolute; top: 8px; right: 8px;
+    background: var(--danger); color: #fff; font-size: 9px;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-weight: 500; padding: 3px 7px; border-radius: 6px; letter-spacing: .5px;
+  }
+  .spool-visual { height: 130px; display: flex; align-items: center; justify-content: center; background: var(--bg3); position: relative; overflow: hidden; }
+  .pastille {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,.35), inset 0 -3px 8px rgba(0,0,0,.25), inset 0 3px 8px rgba(255,255,255,.12);
+    flex-shrink: 0;
+  }
+  .pastille-label { font-family: inherit; font-weight: 800; font-size: var(--pastille-card-font); letter-spacing: -.5px; text-align: center; line-height: 1.1; padding: 0 8px; text-shadow: 0 1px 4px rgba(0,0,0,.5); word-break: break-all; }
+  .card-body { padding: 12px 14px; }
+  .card-title { font-size: 14px; font-weight: 700; line-height: 1.2; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-code-badge {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-size: 10px; color: var(--accent); background: rgba(193,95,60,.12);
+    padding: 2px 7px; border-radius: 5px; border: 1px solid rgba(193,95,60,.25);
+    display: inline-block; margin-bottom: 6px; letter-spacing: .3px;
+  }
+  .card-sub { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+  .qty-bar { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+  .qty-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+  .qty-fill.hi { background: var(--ok); } .qty-fill.mid { background: var(--warn); } .qty-fill.lo { background: var(--danger); }
+  .card-footer { display: flex; flex-direction: column; gap: 6px; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--text2); }
+  .card-footer-top { display: flex; justify-content: space-between; align-items: center; }
+  .card-tags-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tag { font-size: 11px; padding: 4px 9px; border-radius: 7px; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-weight: 600; letter-spacing: .2px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .tag-vacuum  { background: #1e3a5f; color: #5aaeff; border: 1px solid #2a4f7a; }
+  .tag-open    { background: #2e1a00; color: var(--warn); border: 1px solid #4a2e00; }
+  .tag-inuse   { background: #0e2e1a; color: var(--ok); border: 1px solid #1a4a2a; }
+  .tag-stock   { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+  .tag-refill  { background: #2a1a2e; color: #c084ff; border: 1px solid #3d2450; }
+  .tag-mounted { background: #0e2233; color: #60c8ff; border: 1px solid #1a3a50; }
+  [data-theme="light"] .tag-vacuum  { background: #ddeeff; color: #1a4a80; border-color: #aaccee; }
+  [data-theme="light"] .tag-open    { background: #fff3e0; color: #7a4500; border-color: #f0c070; }
+  [data-theme="light"] .tag-inuse   { background: #e6f9ef; color: #1a6040; border-color: #80d4a8; }
+  [data-theme="light"] .tag-refill  { background: #f5e6ff; color: #6a1a8a; border-color: #d4a0ee; }
+  [data-theme="light"] .tag-mounted { background: #e0f5ff; color: #0a4a6a; border-color: #80ccee; }
+  .card-actions { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .card:hover .card-actions { opacity: 1; }
+  .btn-small {
+    background: var(--bg3); backdrop-filter: blur(4px);
+    border: 1px solid var(--border); color: var(--text); border-radius: 7px;
+    width: var(--btn-small-size); height: var(--btn-small-size);
+    display: flex; align-items: center; justify-content: center;
+    font-size: var(--btn-small-font); cursor: pointer; transition: all .12s;
+  }
+  .btn-small:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── SUPPORT BADGES ── */
+  .support-badge {
+    font-size: 10px; padding: 2px 7px; border-radius: 6px;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 3px;
+  }
+  .support-badge-n   { background: #1e3a5f; color: #5aaeff; border: 1px solid #2a4f7a; }
+  .support-badge-ht  { background: #2e1a00; color: var(--warn); border: 1px solid #4a2e00; }
+  .support-badge-vht { background: #2e0404; color: #ff7070; border: 1px solid #4a1010; }
+  [data-theme="light"] .support-badge-n   { background: #ddeeff; color: #1a4a80; border-color: #aaccee; }
+  [data-theme="light"] .support-badge-ht  { background: #fff3e0; color: #7a4500; border-color: #f0c070; }
+  [data-theme="light"] .support-badge-vht { background: #ffeaea; color: #8a1010; border-color: #ee9090; }
+
+  /* ── TRAITS ── */
+  .traits-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+  .trait-chip { background: var(--bg3); border: 1.5px solid var(--border); color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; padding: 5px 11px; border-radius: 20px; cursor: pointer; transition: all .14s; user-select: none; display: flex; align-items: center; gap: 5px; }
+  .trait-chip:hover { border-color: var(--accent); color: var(--text); }
+  .trait-chip.on { border-color: var(--accent); background: rgba(193,95,60,.15); color: var(--accent); font-weight: 600; }
+  .trait-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-weight: 600; border: 1px solid currentColor; opacity: .9; display: inline-flex; align-items: center; gap: 3px; }
+
+  /* ── GROUPED CARDS (bobines redondantes) ── */
+  .card-group { position: relative; isolation: isolate; }
+  .card-ghost {
+    position: absolute; inset: 0; pointer-events: none;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .card-ghost-1 { transform: rotate(-1.5deg) translate(0px, 5px); z-index: 0; }
+  .card-ghost-2 { transform: rotate(1.5deg) translate(3px, 9px); z-index: -1; }
+  .card-group > .card { position: relative; z-index: 1; cursor: default; }
+  .card-group > .card:hover { transform: none; border-color: var(--border); box-shadow: none; }
+  .card-group:hover > .card { border-color: var(--accent); box-shadow: var(--shadow); }
+  .card-group-badge {
+    position: absolute; top: -5px; right: 4px; z-index: 10;
+    background: var(--accent); color: #fff;
+    font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 12px;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    letter-spacing: .4px; pointer-events: none;
+  }
+  .card-group-badge.alert { background: var(--danger); }
+  .card-group-toggle-wrap { padding: 0 14px 12px; }
+  .btn-group-toggle {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
+    font-size: 11px; padding: 6px 12px; border-radius: 8px;
+    cursor: pointer; transition: all .12s; text-align: center;
+  }
+  .btn-group-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  /* Expanded group — full grid row */
+  .card-group-expanded-wrapper { grid-column: 1 / -1; }
+  .card-group-expanded-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 4px 10px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+  }
+  .card-group-expanded-header .btn-group-toggle { width: auto; }
+  .card-group-sub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+
+  /* ── LIST VIEW ── */
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .list-row {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 10px 16px;
+    display: grid; grid-template-columns: 48px 1fr auto auto auto;
+    align-items: center; gap: 14px; cursor: pointer; transition: border-color .15s;
+  }
+  .list-row:hover { border-color: var(--accent); }
+  .list-row.alert { border-color: var(--danger); }
+  .list-dot { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; }
+  .list-dot-label { font-size: var(--pastille-list-font); font-weight: 800; text-align: center; line-height: 1.1; padding: 0 3px; text-shadow: 0 1px 3px rgba(0,0,0,.5); word-break: break-all; }
+  .list-info { min-width: 0; }
+  .list-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-sub { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+  .list-code { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--accent); background: rgba(193,95,60,.12); padding: 1px 5px; border-radius: 4px; }
+  .list-qty { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 13px; text-align: right; white-space: nowrap; }
+  .list-tags { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+  .list-actions { display: flex; gap: 4px; }
+  .list-group-header {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 9px;
+    padding: 8px 16px; display: flex; align-items: center; gap: 12px;
+    font-size: 13px; font-weight: 700;
+  }
+  .list-group-header.alert { border-color: var(--danger); }
+  .list-group-indent { padding-left: 22px; }
+
+  /* ── TOOLTIP ── */
+  .tip { position: relative; cursor: default; }
+  .tip::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--bg3); color: var(--text); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; font-weight: 500; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+  .tip::before { content: ''; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--border); pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 50; }
+  .tip:hover::after, .tip:hover::before { opacity: 1; }
+
+  /* ── MODAL ── */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; transform: translateY(14px); transition: transform .2s; padding: 28px; }
+  .overlay.open .modal { transform: translateY(0); }
+  .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 22px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); margin-bottom: 6px; letter-spacing: .5px; }
+  .form-input, .form-select { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 14px; padding: 10px 14px; border-radius: 8px; outline: none; transition: border-color .15s; -webkit-appearance: none; }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .color-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .color-swatch { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: all .12s; flex-shrink: 0; }
+  .color-swatch.selected { border-color: var(--text); transform: scale(1.15); }
+  #customColorInput { width: 36px; height: 30px; border: none; background: none; cursor: pointer; padding: 0; }
+  .qty-slider-wrap { display: flex; align-items: center; gap: 12px; }
+  input[type=range] { flex: 1; -webkit-appearance: none; height: 4px; background: var(--bg3); border-radius: 2px; outline: none; accent-color: var(--accent); }
+  .qty-display { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 13px; color: var(--accent); min-width: 80px; text-align: right; }
+  .form-toggle-row { display: flex; gap: 8px; }
+  .form-toggle { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; padding: 8px; border-radius: 8px; cursor: pointer; text-align: center; transition: all .12s; }
+  .form-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .modal-footer { display: flex; gap: 10px; margin-top: 24px; justify-content: flex-end; flex-wrap: wrap; }
+  .btn-cancel { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-weight: 500; font-size: 13px; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all .12s; }
+  .btn-cancel:hover { border-color: var(--accent2); color: var(--accent); }
+  .btn-save { background: var(--accent); border: none; color: #fff; font-family: inherit; font-weight: 600; font-size: 13px; padding: 10px 24px; border-radius: 8px; cursor: pointer; transition: background .12s; }
+  .btn-save:hover { background: var(--accent2); }
+  .btn-delete { background: transparent; border: 1px solid var(--danger); color: var(--danger); font-family: inherit; font-weight: 500; font-size: 13px; padding: 10px 16px; border-radius: 8px; cursor: pointer; transition: all .12s; margin-right: auto; }
+  .btn-delete:hover { background: var(--danger); color: #fff; }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 80px 20px; color: var(--text2); }
+  .empty-icon { font-size: 52px; margin-bottom: 16px; opacity: .4; }
+  .empty h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .empty p { font-size: 13px; line-height: 1.6; }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 12px; padding: 10px 20px; border-radius: 30px; z-index: 300; transition: transform .3s; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── SETTINGS / JOURNAL PANELS ── */
+  .settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); backdrop-filter: blur(4px); z-index: 200; display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .settings-overlay.open { opacity: 1; pointer-events: all; }
+  .settings-panel { background: var(--bg2); border-left: 1px solid var(--border); width: 100%; max-width: 400px; height: 100%; overflow-y: auto; transform: translateX(40px); transition: transform .22s; display: flex; flex-direction: column; }
+  .settings-overlay.open .settings-panel { transform: translateX(0); }
+  .settings-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg2); z-index: 10; }
+  .settings-title { font-size: 18px; font-weight: 800; }
+  .settings-close { background: var(--bg3); border: 1px solid var(--border); color: var(--text); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all .12s; }
+  .settings-close:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .settings-body { padding: 20px 24px; flex: 1; display: flex; flex-direction: column; gap: 28px; }
+  .settings-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text2); text-transform: uppercase; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .settings-row label { flex: 1; font-size: 13px; font-weight: 600; }
+  .settings-row .val { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 12px; color: var(--accent); min-width: 36px; text-align: right; }
+  .settings-slider { width: 100%; -webkit-appearance: none; height: 4px; background: var(--bg3); border-radius: 2px; outline: none; accent-color: var(--accent); margin-bottom: 4px; }
+  .custom-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .custom-item { display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+  .custom-item-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--border); }
+  .custom-item-label { flex: 1; font-size: 13px; font-weight: 600; }
+  .custom-item-sub { font-size: 11px; color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; }
+  .custom-item-del { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 5px; transition: all .12s; line-height: 1; }
+  .custom-item-del:hover { color: var(--danger); background: rgba(255,59,59,.1); }
+  .custom-item-del:disabled { opacity: .3; cursor: not-allowed; }
+  .custom-item-del:disabled:hover { color: var(--text2); background: none; }
+  .add-row { display: flex; gap: 8px; align-items: center; }
+  .add-row input[type=text], .add-row input[type=color] { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 13px; padding: 8px 12px; border-radius: 8px; outline: none; flex: 1; transition: border-color .15s; }
+  .add-row input[type=text]:focus { border-color: var(--accent); }
+  .add-row input[type=color] { width: 40px; height: 36px; padding: 2px; cursor: pointer; flex: none; }
+  .add-row select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 13px; padding: 8px 12px; border-radius: 8px; outline: none; flex: 1; transition: border-color .15s; -webkit-appearance: none; cursor: pointer; }
+  .add-row select:focus { border-color: var(--accent); }
+  .btn-add-small { background: var(--accent); border: none; color: #fff; font-family: inherit; font-weight: 700; font-size: 13px; padding: 0 14px; height: 36px; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: all .12s; flex-shrink: 0; }
+  .btn-add-small:hover { background: var(--accent2); }
+
+  /* ── JOURNAL ── */
+  .journal-tabs { display: flex; gap: 6px; padding: 12px 24px 0; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+  .journal-tab { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: all .12s; }
+  .journal-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .journal-tab-clear { margin-left: auto; background: none; border: 1px solid var(--danger); color: var(--danger); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: all .12s; }
+  .journal-tab-clear:hover { background: var(--danger); color: #fff; }
+  .journal-entry { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .journal-entry-header { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  .journal-action-icon { font-size: 13px; flex-shrink: 0; }
+  .journal-code { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-weight: 700; color: var(--accent); font-size: 11px; }
+  .journal-label { color: var(--text); font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .journal-time { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--text2); white-space: nowrap; }
+  .journal-changes { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--text2); display: flex; flex-direction: column; gap: 2px; padding-left: 20px; margin-top: 2px; }
+  .j-from { color: var(--danger); text-decoration: line-through; }
+  .j-to { color: var(--ok); }
+  .journal-empty { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 13px; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    /* Filtres scrollables horizontalement — évite les wraps multi-lignes */
+    .filters { gap: 6px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 10px; scrollbar-width: none; }
+    .filters::-webkit-scrollbar { display: none; }
+    .search-wrap { margin-left: 0; flex-shrink: 0; }
+    .search-wrap input { width: 130px; }
+    .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .list-row { grid-template-columns: 28px 1fr auto; }
+    .list-tags, .list-actions { display: none; }
+    header { flex-wrap: wrap; row-gap: 6px; }
+    .sort-label { display: none; }
+
+    /* ── MODAL RESPONSIVE ── */
+    /* Réduit le padding interne pour maximiser l'espace utile */
+    .modal { padding: 20px 16px; }
+    /* Formulaire : 1 colonne au lieu de 2 */
+    .form-row { grid-template-columns: 1fr; }
+    /* Boutons du footer : empilés verticalement, action principale en haut */
+    .modal-footer { flex-direction: column-reverse; }
+    .modal-footer .btn-delete { margin-right: 0; width: 100%; }
+    .modal-footer .btn-cancel,
+    .modal-footer .btn-save { width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body data-theme="dark">
+
+<header>
+  <div class="logo">
+    Fil<span>Stock</span>
+    <span class="logo-sub">Julok</span>
+    <span class="version-badge" id="versionBadge"></span>
+    <span class="last-modified-badge" id="lastModifiedBadge" title="Voir le journal des modifications" style="display:none"></span>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon" id="themeBtn" title="Thème"></button>
+    <button class="btn-icon" id="viewBtn" title="Changer de vue"></button>
+    <button class="btn-icon" id="exportBtn" title="Exporter en JSON">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+    <button class="btn-icon" id="importBtn" title="Importer un JSON">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </button>
+    <button class="btn-icon" id="journalBtn" title="Journal des modifications">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    </button>
+    <button class="btn-icon" id="settingsBtn" title="Réglages">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <input type="file" id="importFile" accept=".json" style="display:none">
+    <button class="btn-add" id="addBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Bobine
+    </button>
+  </div>
+</header>
+
+<div class="filters">
+  <button class="filter-chip active" data-filter="all">Tout</button>
+  <button class="filter-chip" data-filter="open">Ouvertes</button>
+  <button class="filter-chip" data-filter="vacuum">Sous vide</button>
+  <button class="filter-chip" data-filter="inuse">En machine</button>
+  <button class="filter-chip" data-filter="stock">En stock</button>
+  <button class="filter-chip" data-filter="alert">⚠ Presque vides</button>
+  <div class="filter-sep"></div>
+  <div class="search-wrap"><input type="text" id="searchInput" placeholder="Rechercher…"></div>
+</div>
+
+<div class="sort-bar" id="sortBar">
+  <span class="sort-label">Grouper :</span>
+  <button class="filter-chip active" data-group="material+color">Mat.+Couleur</button>
+  <button class="filter-chip" data-group="material">Matière</button>
+  <button class="filter-chip" data-group="color">Couleur</button>
+  <div class="filter-sep"></div>
+  <span class="sort-label">Trier :</span>
+  <button class="filter-chip active" data-sort="default">Défaut</button>
+  <button class="filter-chip" data-sort="brand">Marque</button>
+  <button class="filter-chip" data-sort="qty-asc">Qté ↑</button>
+  <button class="filter-chip" data-sort="qty-desc">Qté ↓</button>
+  <button class="filter-chip" data-sort="date">Créé</button>
+  <button class="filter-chip" data-sort="modified">Modifié</button>
+</div>
+
+<div class="stats" id="statsBar"></div>
+<div class="view-container" id="viewContainer"></div>
+
+<!-- MODAL BOBINE -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Nouvelle bobine</div>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">MARQUE</label>
+        <input class="form-input" id="fBrand" placeholder="Bambu" value="Bambu" list="brandList">
+        <datalist id="brandList"></datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">MATIÈRE</label>
+        <select class="form-select" id="fMaterial"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">COULEUR</label>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">QUANTITÉ RESTANTE</label>
+      <div class="qty-slider-wrap">
+        <input type="range" id="fQty" min="0" max="100" value="100" oninput="updateQtyDisplay(this.value)">
+        <span class="qty-display" id="qtyDisplay">1000g · 100%</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">EMBALLAGE</label>
+      <div class="form-toggle-row">
+        <button class="form-toggle active" data-group="pack" data-val="vacuum">🔒 Sous vide</button>
+        <button class="form-toggle" data-group="pack" data-val="open">📦 Ouvert</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">EMPLACEMENT</label>
+      <div class="form-toggle-row">
+        <button class="form-toggle active" data-group="loc" data-val="stock">📦 En stock</button>
+        <button class="form-toggle" data-group="loc" data-val="inuse">🖨 En machine</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">TYPE</label>
+      <div class="form-toggle-row">
+        <button class="form-toggle active" data-group="type" data-val="mounted">🔩 Montée sur support</button>
+        <button class="form-toggle" data-group="type" data-val="refill">♻ Recharge</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">SUPPORT DE BOBINE</label>
+      <select class="form-select" id="fSupport">
+        <option value="">— Aucun support —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">CARACTÉRISTIQUES SPÉCIALES</label>
+      <div class="traits-grid" id="traitsGrid"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">NOTES (optionnel)</label>
+      <input class="form-input" id="fNotes" placeholder="Commentaire libre…">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-delete" id="deleteBtn" style="display:none" onclick="deleteSpool()">🗑 Supprimer</button>
+      <button class="btn-cancel" id="duplicateBtn" style="display:none" onclick="duplicateSpool()" title="Crée une copie avec 100% de quantité">⧉ Dupliquer</button>
+      <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="btn-save" onclick="saveSpool()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <div class="settings-title">⚙ Réglages</div>
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <!-- APPARENCE -->
+      <div>
+        <div class="settings-section-title">Apparence</div>
+        <div class="settings-row"><label>Taille de police globale</label><span class="val" id="valFontSize">100%</span></div>
+        <input type="range" class="settings-slider" id="slFontSize" min="75" max="130" value="100" step="5">
+        <div class="settings-row" style="margin-top:14px"><label>Texte dans les pastilles</label><span class="val" id="valPastille">100%</span></div>
+        <input type="range" class="settings-slider" id="slPastille" min="50" max="200" value="100" step="10">
+        <div class="settings-row" style="margin-top:14px"><label>Taille boutons &amp; icônes</label><span class="val" id="valBtnSize">100%</span></div>
+        <input type="range" class="settings-slider" id="slBtnSize" min="70" max="150" value="100" step="5">
+      </div>
+
+      <!-- SUPPORTS DE BOBINE -->
+      <div>
+        <div class="settings-section-title">Supports de bobine</div>
+        <div class="custom-list" id="supportList"></div>
+        <div class="add-row" style="margin-bottom:8px">
+          <select id="newSupportType">
+            <option value="normal">🔩 Normal (~60°C, PLA)</option>
+            <option value="high-temp">🌡️ Haute temp. (~90°C, PETG/ABS)</option>
+            <option value="very-high-temp">🔥 Très haute temp. (&gt;90°C, PA-CF)</option>
+          </select>
+        </div>
+        <div class="add-row">
+          <input type="text" id="newSupportNotes" placeholder="Notes optionnelles…" maxlength="30">
+          <button class="btn-add-small" onclick="addSupport()">＋ Ajouter</button>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:8px;display:flex;align-items:center;gap:6px">
+          Prochain ID : <span class="val" id="supportIdPreview">—</span>
+        </div>
+      </div>
+
+      <!-- MATIÈRES -->
+      <div>
+        <div class="settings-section-title">Matières personnalisées</div>
+        <div class="custom-list" id="materialList"></div>
+        <div class="add-row">
+          <input type="text" id="newMaterial" placeholder="Ex: SILK, CLAY…" maxlength="12">
+          <button class="btn-add-small" onclick="addMaterial()">＋ Ajouter</button>
+        </div>
+      </div>
+
+      <!-- COULEURS -->
+      <div>
+        <div class="settings-section-title">Couleurs personnalisées</div>
+        <div class="custom-list" id="colorList"></div>
+        <div class="add-row">
+          <input type="color" id="newColorHex" value="#ff0000">
+          <input type="text" id="newColorName" placeholder="Nom de la couleur" maxlength="16">
+          <button class="btn-add-small" onclick="addColor()">＋</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- JOURNAL PANEL -->
+<div class="settings-overlay" id="journalOverlay">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <div class="settings-title">📋 Journal</div>
+      <button class="settings-close" onclick="closeJournal()">✕</button>
+    </div>
+    <div class="journal-tabs" id="journalTabs">
+      <button class="journal-tab active" data-jfilter="all">Tout</button>
+      <button class="journal-tab" data-jfilter="spool">🧵 Bobines</button>
+      <button class="journal-tab" data-jfilter="support">🔩 Supports</button>
+      <button class="journal-tab-clear" onclick="clearJournal()">🗑 Effacer</button>
+    </div>
+    <div class="settings-body" id="journalEntries" style="padding-top:12px;gap:5px"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+// ─── VERSION ─────────────────────────────────────────────────────────
+const APP_VERSION = '2.0';
+
+// ─── INIT TAURI STORAGE ───────────────────────────────────────────────
+// Détecte si on tourne dans Tauri (app native) ou dans un navigateur (fallback).
+// En mode Tauri : lit filstock_data.json depuis AppData au démarrage.
+// En mode navigateur : utilise localStorage comme avant (rétrocompatibilité totale).
+const __TAURI_CTX = typeof window.__TAURI_INTERNALS__ !== 'undefined';
+let _appData = {};
+let _flushScheduled = false;
+
+if (__TAURI_CTX) {
+  const { readTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+  try {
+    const raw = await readTextFile('filstock_data.json', { baseDir: BaseDirectory.AppData });
+    _appData = JSON.parse(raw);
+  } catch { /* première launch : fichier absent, on part des defaults */ }
+}
+
+// Écriture différée (debounce 300ms) pour éviter d'écrire à chaque frappe.
+// Fire-and-forget : les mutations JS restent synchrones, la persistance est async.
+async function _doFlush() {
+  if (!__TAURI_CTX) return;
+  const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+  await writeTextFile('filstock_data.json', JSON.stringify(_appData), { baseDir: BaseDirectory.AppData });
+  _flushScheduled = false;
+}
+function _flushToDisk() {
+  if (!__TAURI_CTX) return;
+  if (_flushScheduled) return;
+  _flushScheduled = true;
+  setTimeout(() => _doFlush().catch(console.error), 300);
+}
+
+// ─── UTILITAIRE : ÉCHAPPEMENT HTML ───────────────────────────────────
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── UTILITAIRE : COULEUR DE TEXTE ───────────────────────────────────
+// Calcule la luminance perceptuelle (formule WCAG) pour choisir noir ou blanc
+// Valeurs de pondération : R=0.299, G=0.587, B=0.114 (sensibilité de l'œil humain)
+function getTextColor(hex) {
+  const h = hex.replace('#','');
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  return (0.299*r + 0.587*g + 0.114*b) / 255 > 0.55 ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.92)';
+}
+
+// ─── UTILITAIRE : DISTANCE COULEUR ───────────────────────────────────
+// Distance euclidienne en espace RGB — approximation rapide (non-perceptuelle).
+// Utilisé pour suggérer un nom de couleur canonique depuis une hex arbitraire.
+// Note : CIE Lab serait plus précis visuellement, mais RGB suffit ici (12 couleurs de base).
+function colorDistance(h1, h2) {
+  const p = h => { const x = h.replace('#',''); return [parseInt(x.slice(0,2),16), parseInt(x.slice(2,4),16), parseInt(x.slice(4,6),16)]; };
+  const [r1,g1,b1] = p(h1), [r2,g2,b2] = p(h2);
+  return Math.sqrt((r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2);
+}
+// Retourne le nom de la couleur de BASE la plus proche (jamais les couleurs custom)
+// pour garantir un nom canonique cohérent dans les codes et le groupement
+function closestBaseColorName(hex) {
+  return BASE_COLORS.reduce((best, c) => colorDistance(hex, c.hex) < colorDistance(hex, best.hex) ? c : best).name;
+}
+
+// ─── CONSTANTES ───────────────────────────────────────────────────────
+const BASE_COLORS = [
+  {name:'Noir',hex:'#1a1a1a'},{name:'Blanc',hex:'#f0eeea'},{name:'Gris',hex:'#7a7a82'},
+  {name:'Rouge',hex:'#e83030'},{name:'Orange',hex:'#ff6d1f'},{name:'Jaune',hex:'#ffd600'},
+  {name:'Vert',hex:'#1db954'},{name:'Bleu',hex:'#1a78e8'},{name:'Violet',hex:'#8844ee'},
+  {name:'Rose',hex:'#ff4dad'},{name:'Marron',hex:'#8b5e3c'},{name:'Transparent',hex:'#c8d8e8'},
+];
+const BASE_MATERIALS = ['PLA','PETG','ABS','ASA','TPU','NYLON','PA-CF','PLA-CF','PETG-CF','Autre'];
+const TRAITS = [
+  {id:'flexible',label:'Souple',icon:'🫀',color:'#22c55e'},
+  {id:'transparent',label:'Transparent',icon:'💎',color:'#7dd3fc'},
+  {id:'glossy',label:'Brillant',icon:'✨',color:'#fbbf24'},
+  {id:'matte',label:'Mat',icon:'🪨',color:'#94a3b8'},
+  {id:'wood',label:'Bois',icon:'🪵',color:'#a16207'},
+  {id:'stone',label:'Pierre',icon:'🪨',color:'#78716c'},
+  {id:'carbon',label:'Carbone',icon:'⬛',color:'#1e293b'},
+  {id:'fiberglass',label:'Fibre de verre',icon:'🔷',color:'#38bdf8'},
+  {id:'antistatic',label:'Antistatique',icon:'⚡',color:'#f59e0b'},
+  {id:'fireproof',label:'Anti-feu',icon:'🔥',color:'#ef4444'},
+];
+const FIELD_LABELS = {
+  brand:'Marque', material:'Matière', qty:'Quantité', pack:'Emballage',
+  loc:'Emplacement', type:'Type', colorName:'Couleur', color:'Couleur hex',
+  notes:'Notes', supportId:'Support', traits:'Caractéristiques'
+};
+const SPOOL_DIFF_FIELDS = ['brand','material','qty','pack','loc','type','color','colorName','notes','supportId','traits'];
+
+// ─── ÉTAT GLOBAL ──────────────────────────────────────────────────────
+// En mode Tauri : _appData est pré-chargé depuis filstock_data.json (voir bloc init ci-dessus).
+// Fallback navigateur : lecture localStorage classique.
+let customColors    = _appData.customColors    ?? JSON.parse(localStorage.getItem('filstock_custom_colors')    || '[]');
+let customMaterials = _appData.customMaterials ?? JSON.parse(localStorage.getItem('filstock_custom_materials') || '[]');
+let supports        = _appData.supports        ?? JSON.parse(localStorage.getItem('filstock_supports')         || '[]');
+let codeCounters    = _appData.codeCounters    ?? JSON.parse(localStorage.getItem('filstock_code_counters')    || '{}');
+let spools          = _appData.spools          ?? JSON.parse(localStorage.getItem('filstock_v1')               || '[]');
+let selectedTraits  = new Set();
+let currentFilter   = 'all';
+let currentView     = 'card';
+let searchQ         = '';
+let selectedColor   = '';
+let editingId       = null;
+let expandedGroups  = new Set();
+let currentJournalFilter = 'all';
+// Persistés pour retrouver les préférences de vue au rechargement
+let currentGroupMode = _appData.groupMode ?? localStorage.getItem('filstock_groupMode') ?? 'material+color';
+let currentSortMode  = _appData.sortMode  ?? localStorage.getItem('filstock_sortMode')  ?? 'default';
+
+// ─── PERSISTANCE ──────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('filstock_v1', JSON.stringify(spools));
+  _appData.spools = spools;
+  _flushToDisk();
+}
+function saveSettings() {
+  localStorage.setItem('filstock_custom_colors', JSON.stringify(customColors));
+  localStorage.setItem('filstock_custom_materials', JSON.stringify(customMaterials));
+  _appData.customColors = customColors;
+  _appData.customMaterials = customMaterials;
+  _flushToDisk();
+}
+function saveSupports() {
+  localStorage.setItem('filstock_supports', JSON.stringify(supports));
+  _appData.supports = supports;
+  _flushToDisk();
+}
+
+function getAllColors()    { return [...BASE_COLORS, ...customColors]; }
+function getAllMaterials() { return [...BASE_MATERIALS, ...customMaterials]; }
+function uid()            { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function qtyToGrams(pct)  { return Math.round(pct * 10); }
+function qtyClass(pct)    { return pct <= 20 ? 'lo' : pct <= 50 ? 'mid' : 'hi'; }
+// Retourne la variable CSS de couleur selon le niveau de stock
+function qtyColor(pct)    { return pct <= 20 ? 'var(--danger)' : pct <= 50 ? 'var(--warn)' : 'var(--ok)'; }
+
+// ─── CODIFICATION UNIQUE ──────────────────────────────────────────────
+// Produit des codes lisibles de type "PLA-NOIR-001"
+// normalize('NFD') + replace : supprime les accents pour rester ASCII-safe (ex: "Bébé" → "BEBE")
+function generateSpoolCode(material, colorName) {
+  const matPart   = material.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'').slice(0,8);
+  const colorPart = colorName.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'').slice(0,5) || 'PERSO';
+  const base = `${matPart}-${colorPart}`;
+  codeCounters[base] = (codeCounters[base] || 0) + 1;
+  localStorage.setItem('filstock_code_counters', JSON.stringify(codeCounters));
+  _appData.codeCounters = codeCounters; _flushToDisk();
+  return `${base}-${String(codeCounters[base]).padStart(3,'0')}`;
+}
+
+// Reconstruction des compteurs à partir des codes existants.
+// Nécessaire après un import : évite que de nouvelles bobines dupliquent un code déjà présent.
+function syncCodeCounters() {
+  // Initialise les compteurs depuis les codes existants (évite les collisions à l'import)
+  spools.forEach(s => {
+    if (!s.code) return;
+    const parts = s.code.split('-');
+    const num = parseInt(parts[parts.length - 1]);
+    if (isNaN(num)) return;
+    const base = parts.slice(0, -1).join('-');
+    codeCounters[base] = Math.max(codeCounters[base] || 0, num);
+  });
+  localStorage.setItem('filstock_code_counters', JSON.stringify(codeCounters));
+  _appData.codeCounters = codeCounters; _flushToDisk();
+}
+
+// Migration des anciennes bobines sans code/dates — appelée uniquement au démarrage et à l'import.
+// Garantit que tout l'inventaire est conforme au modèle de données actuel.
+function migrateSpoolCodes() {
+  let changed = false;
+  spools.forEach(s => {
+    if (!s.code) { s.code = generateSpoolCode(s.material, s.colorName); changed = true; }
+    if (!s.createdAt)    { s.createdAt    = new Date().toISOString(); changed = true; }
+    if (!s.lastModified) { s.lastModified = new Date().toISOString(); changed = true; }
+    if (s.supportId === undefined) { s.supportId = null; changed = true; }
+  });
+  if (changed) save();
+}
+
+// ─── SUPPORTS ─────────────────────────────────────────────────────────
+function supportTypeIcon(type) {
+  return type === 'normal' ? '🔩' : type === 'high-temp' ? '🌡️' : '🔥';
+}
+function supportTypeCls(type) {
+  return type === 'normal' ? 'n' : type === 'high-temp' ? 'ht' : 'vht';
+}
+function generateSupportId(type) {
+  const prefix = {normal:'SUP-N','high-temp':'SUP-HT','very-high-temp':'SUP-THT'}[type] || 'SUP-N';
+  const max = Math.max(0, ...supports.filter(s => s.type === type).map(s => +(s.id.split('-').pop()) || 0));
+  return `${prefix}-${String(max + 1).padStart(2,'0')}`;
+}
+function supportBadgeHTML(supportId) {
+  if (!supportId) return '';
+  const sup = supports.find(s => s.id === supportId);
+  if (!sup) return `<span class="support-badge support-badge-n">${esc(supportId)}</span>`;
+  return `<span class="support-badge support-badge-${supportTypeCls(sup.type)}">${supportTypeIcon(sup.type)} ${esc(supportId)}</span>`;
+}
+
+// ─── JOURNAL ──────────────────────────────────────────────────────────
+function addJournalEntry(entry) {
+  let j = JSON.parse(localStorage.getItem('filstock_journal') || JSON.stringify(_appData.journal || []));
+  j.unshift(entry);
+  if (j.length > 200) j = j.slice(0, 200);
+  localStorage.setItem('filstock_journal', JSON.stringify(j));
+  localStorage.setItem('filstock_last_modified', entry.ts);
+  _appData.journal = j; _appData.lastModified = entry.ts; _flushToDisk();
+  updateLastModifiedBadge();
+}
+
+function updateLastModifiedBadge() {
+  const badge = document.getElementById('lastModifiedBadge');
+  const s = localStorage.getItem('filstock_last_modified') || _appData.lastModified || null;
+  if (!s) { badge.style.display = 'none'; return; }
+  const d = new Date(s);
+  const dd = String(d.getDate()).padStart(2,'0'), mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0'), mn = String(d.getMinutes()).padStart(2,'0');
+  badge.textContent = `🕐 ${dd}/${mm} ${hh}:${mn}`;
+  badge.style.display = '';
+}
+
+function timeAgo(iso) {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return 'à l\'instant';
+  if (m < 60) return `il y a ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `il y a ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `il y a ${d}j`;
+  return new Date(iso).toLocaleDateString('fr-FR');
+}
+
+// Compare deux snapshots d'objet sur les champs listés.
+// JSON.stringify permet de comparer les arrays (traits[]) en profondeur.
+function diffEntity(oldObj, newObj, fields) {
+  return fields.filter(f => JSON.stringify(oldObj[f]) !== JSON.stringify(newObj[f]))
+               .map(f => ({ field: f, from: oldObj[f], to: newObj[f] }));
+}
+
+function formatFieldValue(field, value) {
+  if (value === null || value === undefined || value === '') return 'aucun';
+  if (field === 'qty')  return `${qtyToGrams(value)}g (${value}%)`;
+  if (field === 'pack') return value === 'vacuum' ? 'sous vide' : 'ouvert';
+  if (field === 'loc')  return value === 'inuse'  ? 'en machine' : 'en stock';
+  if (field === 'type') return value === 'mounted'? 'sur support' : 'recharge';
+  if (field === 'traits') return Array.isArray(value) ? (value.length ? value.join(', ') : 'aucun') : String(value);
+  if (field === 'color') return String(value); // hex
+  return String(value);
+}
+
+function changesHTML(changes) {
+  if (!changes || !changes.length) return '';
+  // Merge color + colorName into single "Couleur" entry
+  const hasColorName = changes.find(c => c.field === 'colorName');
+  const hasHex = changes.find(c => c.field === 'color');
+  const others = changes.filter(c => c.field !== 'color' && c.field !== 'colorName');
+  const display = [...others];
+  if (hasColorName) display.push({field:'colorName', from: hasColorName.from, to: hasColorName.to});
+  else if (hasHex) display.push({field:'color', from: hasHex.from, to: hasHex.to});
+  return display.map(c => {
+    const lbl = FIELD_LABELS[c.field] || c.field;
+    return `<div><span style="color:var(--text2)">${esc(lbl)} :</span> <span class="j-from">${esc(formatFieldValue(c.field,c.from))}</span> → <span class="j-to">${esc(formatFieldValue(c.field,c.to))}</span></div>`;
+  }).join('');
+}
+
+const ACTION_ICONS = {
+  'created':'✦','edited':'✎','deleted':'🗑',
+  'support_created':'✦','support_edited':'✎','support_deleted':'🗑','support_assigned':'🔗'
+};
+const ACTION_LABELS = {
+  'created':'Créée','edited':'Modifiée','deleted':'Supprimée',
+  'support_created':'Créé','support_edited':'Modifié','support_deleted':'Supprimé','support_assigned':'Réassigné'
+};
+
+// ─── RENDU STATS ──────────────────────────────────────────────────────
+function getFiltered() {
+  return spools.filter(s => {
+    if (currentFilter === 'open')   return s.pack === 'open';
+    if (currentFilter === 'vacuum') return s.pack === 'vacuum';
+    if (currentFilter === 'inuse')  return s.loc  === 'inuse';
+    if (currentFilter === 'stock')  return s.loc  === 'stock';
+    if (currentFilter === 'alert')  return s.qty  <= 20;
+    return true;
+  }).filter(s => {
+    if (!searchQ) return true;
+    const q = searchQ.toLowerCase();
+    return (s.brand + s.material + s.colorName + (s.notes || '') + (s.code || '')).toLowerCase().includes(q);
+  });
+}
+
+// Accepte optionnellement le résultat déjà calculé de getFiltered() pour éviter un double appel
+function renderStats(filteredItems) {
+  const el = document.getElementById('statsBar');
+  const total    = spools.length;
+  const alerts   = spools.filter(s => s.qty <= 20).length;
+  const inuse    = spools.filter(s => s.loc === 'inuse').length;
+  const filtered = (filteredItems ?? getFiltered()).length;
+  const freeSup  = supports.length - spools.filter(s => s.supportId).length;
+  el.innerHTML = `
+    <div class="stat"><strong>${filtered}</strong><br>affichées</div>
+    <div class="stat"><strong>${total}</strong><br>total</div>
+    <div class="stat"><strong>${inuse}</strong><br>en machine</div>
+    ${supports.length ? `<div class="stat"><strong>${freeSup}</strong><br>supports libres</div>` : ''}
+    ${alerts ? `<div class="stat" style="color:var(--danger)"><strong>${alerts}</strong><br>⚠ presque vides</div>` : ''}
+  `;
+}
+
+// ─── COMPTEURS CHIPS DE FILTRE ────────────────────────────────────────
+// Met à jour les attributs data-count sur chaque chip pour afficher les totaux
+function updateFilterCounts() {
+  const counts = {
+    all:    spools.length,
+    open:   spools.filter(s => s.pack === 'open').length,
+    vacuum: spools.filter(s => s.pack === 'vacuum').length,
+    inuse:  spools.filter(s => s.loc  === 'inuse').length,
+    stock:  spools.filter(s => s.loc  === 'stock').length,
+    alert:  spools.filter(s => s.qty  <= 20).length,
+  };
+  document.querySelectorAll('.filters .filter-chip[data-filter]').forEach(btn => {
+    const n = counts[btn.dataset.filter];
+    if (n !== undefined) btn.dataset.count = n > 0 ? `(${n})` : '';
+  });
+}
+
+// ─── PASTILLE HTML ────────────────────────────────────────────────────
+function pastilleHTML(color, material) {
+  return `<div class="pastille" style="background:${color}">
+    <span class="pastille-label" style="color:${getTextColor(color)}">${esc(material)}</span>
+  </div>`;
+}
+
+// ─── RENDU CARTE ──────────────────────────────────────────────────────
+function renderCard(s) {
+  const alert  = s.qty <= 20;
+  const grams  = qtyToGrams(s.qty);
+  const qCls   = qtyClass(s.qty);
+  const qColor = qtyColor(s.qty);
+  const packLabel = s.pack==='vacuum' ? '🔒 Sous vide' : '📦 Ouvert';
+  const locLabel  = s.loc==='inuse'   ? '🖨 Machine'   : '📦 Stock';
+  const typeLabel = s.type==='refill' ? '♻ Recharge'   : '🔩 Support';
+  const codeBadge = s.code ? `<div class="card-code-badge">${esc(s.code)}</div>` : '';
+  const supBadge  = supportBadgeHTML(s.supportId);
+  return `<div class="card${alert?' alert':''}" onclick="openEdit('${s.id}')">
+    <div class="card-actions">
+      <button class="btn-small" onclick="event.stopPropagation();openEdit('${s.id}')">✎</button>
+    </div>
+    <div class="spool-visual">${pastilleHTML(s.color, s.material)}</div>
+    <div class="card-body">
+      <div class="card-title">${esc(s.brand)} · ${esc(s.colorName)}</div>
+      ${codeBadge}
+      <div class="card-sub">${esc(s.material)}</div>
+      <div class="qty-bar"><div class="qty-fill ${qCls}" style="width:${s.qty}%"></div></div>
+      <div class="card-footer">
+        <div class="card-footer-top">
+          <span style="font-size:13px;font-family:ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',monospace;font-weight:700;color:${qColor}">${grams}g · ${s.qty}%</span>
+        </div>
+        <div class="card-tags-row">
+          <span class="tag tag-${s.pack}">${packLabel}</span>
+          <span class="tag tag-${s.loc}">${locLabel}</span>
+          <span class="tag tag-${s.type}">${typeLabel}</span>
+          ${supBadge}
+        </div>
+        ${s.traits&&s.traits.length?`<div class="card-tags-row" style="margin-top:2px">${traitsHTML(s.traits)}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── TRI ─────────────────────────────────────────────────────────────
+function getSorted(items) {
+  if (currentSortMode === 'default') return items;
+  return [...items].sort((a, b) => {
+    if (currentSortMode === 'brand')    return a.brand.localeCompare(b.brand);
+    if (currentSortMode === 'material') return a.material.localeCompare(b.material);
+    if (currentSortMode === 'color')    return a.colorName.localeCompare(b.colorName);
+    if (currentSortMode === 'qty-asc')  return a.qty - b.qty;
+    if (currentSortMode === 'qty-desc') return b.qty - a.qty;
+    if (currentSortMode === 'date')     return new Date(b.createdAt) - new Date(a.createdAt);
+    if (currentSortMode === 'modified') return new Date(b.lastModified||b.createdAt) - new Date(a.lastModified||a.createdAt);
+    return 0;
+  });
+}
+
+// ─── RENDU GROUPE CARTE (bobines redondantes) ─────────────────────────
+function getSpoolGroups(items) {
+  const sorted = getSorted(items);
+  const map = new Map();
+  for (const s of sorted) {
+    const key = currentGroupMode === 'material' ? s.material
+              : currentGroupMode === 'color'    ? s.colorName
+              : `${s.material}::${s.colorName}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(s);
+  }
+  return map;
+}
+
+// Règle métier de priorité d'affichage dans les groupes :
+//   1. Bobine "en machine" avec la quantité la plus basse (celle en cours de consommation)
+//   2. Sinon, bobine "ouverte" avec la quantité la plus basse (prochaine à utiliser)
+//   3. Fallback : n'importe quelle bobine, qty la plus basse
+function getPrimarySpoolFromGroup(spools) {
+  const inuse = spools.filter(s => s.loc === 'inuse');
+  if (inuse.length) return inuse.reduce((a,b) => a.qty <= b.qty ? a : b);
+  const open = spools.filter(s => s.pack === 'open');
+  if (open.length) return open.reduce((a,b) => a.qty <= b.qty ? a : b);
+  return spools.reduce((a,b) => a.qty <= b.qty ? a : b);
+}
+
+function renderCardGroup(key, groupSpools) {
+  const primary    = getPrimarySpoolFromGroup(groupSpools);
+  const hasAlert   = groupSpools.some(s => s.qty <= 20);
+  const n          = groupSpools.length;
+  const totalGrams = groupSpools.reduce((acc,s) => acc + qtyToGrams(s.qty), 0);
+  // compositePct = pourcentage moyen ramené à des bobines de 1 kg (1000g)
+  // Math.min(100, ...) protège contre les bobines de moins de 1 kg qui dépasseraient 100%
+  const compositePct = Math.min(100, Math.round(totalGrams / (n * 1000) * 100));
+  const qCls   = qtyClass(compositePct);
+  const qColor = qtyColor(compositePct);
+  const inuseCount = groupSpools.filter(s => s.loc === 'inuse').length;
+  const stockCount = groupSpools.filter(s => s.loc === 'stock').length;
+  const statusParts = [];
+  if (inuseCount) statusParts.push(`${inuseCount} en machine`);
+  if (stockCount) statusParts.push(`${stockCount} en stock`);
+  const brands    = [...new Set(groupSpools.map(s => s.brand))];
+  const brandStr  = brands.length === 1 ? brands[0] : `${brands.length} marques`;
+  // Clé peut être "MAT::COULEUR", "MAT" (mode material) ou "COULEUR" (mode color)
+  const parts = key.split('::');
+  const material  = currentGroupMode === 'color'    ? primary.material  : parts[0];
+  const colorName = currentGroupMode === 'material' ? primary.colorName : (parts[1] ?? parts[0]);
+  return `<div class="card-group">
+    <div class="card-ghost card-ghost-2"></div>
+    <div class="card-ghost card-ghost-1"></div>
+    <span class="card-group-badge${hasAlert?' alert':''}">&times;${n}</span>
+    <div class="card${hasAlert?' alert':''}">
+      <div class="spool-visual">${pastilleHTML(primary.color, material)}</div>
+      <div class="card-body">
+        <div class="card-title">${esc(brandStr)} · ${esc(colorName)}</div>
+        <div class="card-sub">${esc(material)}</div>
+        <div class="qty-bar"><div class="qty-fill ${qCls}" style="width:${compositePct}%"></div></div>
+        <div class="card-footer">
+          <div class="card-footer-top">
+            <span style="font-size:13px;font-family:ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',monospace;font-weight:700;color:${qColor}">${totalGrams}g total · ${compositePct}%</span>
+          </div>
+          <div style="font-family:ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',monospace;font-size:11px;color:var(--text2)">${statusParts.join(' · ')}</div>
+        </div>
+      </div>
+      <div class="card-group-toggle-wrap">
+        <button class="btn-group-toggle" data-group-key="${esc(key)}">▼ Voir les ${n} bobines</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderCardGroupExpanded(key, groupSpools) {
+  const parts = key.split('::');
+  const material  = currentGroupMode === 'color'    ? groupSpools[0].material  : parts[0];
+  const colorName = currentGroupMode === 'material' ? groupSpools[0].colorName : (parts[1] ?? parts[0]);
+  const hasAlert   = groupSpools.some(s => s.qty <= 20);
+  const totalGrams = groupSpools.reduce((acc,s) => acc + qtyToGrams(s.qty), 0);
+  const n = groupSpools.length;
+  return `<div class="card-group-expanded-wrapper">
+    <div class="card-group-expanded-header">
+      <span style="font-size:14px;font-weight:700">
+        ${esc(material)} · ${esc(colorName)}
+        <span style="font-size:12px;color:var(--text2);font-family:ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',monospace;margin-left:8px">${n} bobines · ${totalGrams}g total</span>
+        ${hasAlert?'<span style="font-size:11px;color:var(--danger);margin-left:6px">⚠ alerte stock</span>':''}
+      </span>
+      <button class="btn-group-toggle" style="width:auto" data-group-key="${esc(key)}">▲ Réduire</button>
+    </div>
+    <div class="card-group-sub-grid">${groupSpools.map(s => renderCard(s)).join('')}</div>
+  </div>`;
+}
+
+function toggleGroup(key) {
+  if (expandedGroups.has(key)) expandedGroups.delete(key);
+  else expandedGroups.add(key);
+  render();
+}
+
+// ─── RENDU LISTE ROW ──────────────────────────────────────────────────
+function renderListRow(s) {
+  const alert  = s.qty <= 20;
+  const grams  = qtyToGrams(s.qty);
+  const qCls   = qtyClass(s.qty);
+  const qColor = qtyColor(s.qty);
+  const packTip  = s.pack==='vacuum' ? 'Emballage : sous vide' : 'Emballage : ouvert';
+  const locTip   = s.loc==='inuse'   ? 'Emplacement : en machine' : 'Emplacement : en stock';
+  const typeTip  = s.type==='refill' ? 'Type : recharge' : 'Type : montée sur support';
+  const alertTip = alert ? 'Niveau bas : commander bientôt !' : `Stock : ${grams}g restants`;
+  const packIcon = s.pack==='vacuum' ? '🔒' : '📦';
+  const locIcon  = s.loc==='inuse'   ? '🖨️' : '🗄️';
+  const typeIcon = s.type==='refill' ? '♻️' : '🔩';
+  const traitIcons = (s.traits||[]).map(id => {
+    const t = TRAITS.find(x => x.id === id); if (!t) return '';
+    return `<span class="tag tip" data-tip="${esc(t.label)}" style="font-size:15px;padding:4px 7px;background:${t.color}18;color:${t.color};border:1px solid ${t.color}44">${t.icon}</span>`;
+  }).join('');
+  const codePart = s.code ? `<span class="list-code">${esc(s.code)}</span>` : '';
+  const supBadge = supportBadgeHTML(s.supportId);
+  return `<div class="list-row${alert?' alert':''}" onclick="openEdit('${s.id}')">
+    <div class="list-dot" style="background:${s.color}">
+      <span class="list-dot-label" style="color:${getTextColor(s.color)}">${esc(s.material)}</span>
+    </div>
+    <div class="list-info">
+      <div class="list-name">${esc(s.brand)} ${esc(s.material)} · ${esc(s.colorName)}</div>
+      <div class="list-sub">${codePart}${s.notes ? esc(s.notes) : '&nbsp;'}</div>
+    </div>
+    <div class="list-qty tip" data-tip="${alertTip}" style="color:${qColor}">${grams}g · ${s.qty}%</div>
+    <div class="list-tags">
+      ${traitIcons}${supBadge}
+      <span class="tag tag-${s.pack} tip" data-tip="${packTip}" style="font-size:16px;padding:5px 8px">${packIcon}</span>
+      <span class="tag tag-${s.loc} tip" data-tip="${locTip}" style="font-size:16px;padding:5px 8px">${locIcon}</span>
+      <span class="tag tag-${s.type} tip" data-tip="${typeTip}" style="font-size:16px;padding:5px 8px">${typeIcon}</span>
+    </div>
+    <div class="list-actions"><button class="btn-small" onclick="event.stopPropagation();openEdit('${s.id}')">✎</button></div>
+  </div>`;
+}
+
+function renderListGroup(key, groupSpools) {
+  const primary    = getPrimarySpoolFromGroup(groupSpools);
+  const parts = key.split('::');
+  const material  = currentGroupMode === 'color'    ? primary.material  : parts[0];
+  const colorName = currentGroupMode === 'material' ? primary.colorName : (parts[1] ?? parts[0]);
+  const hasAlert   = groupSpools.some(s => s.qty <= 20);
+  const totalGrams = groupSpools.reduce((acc,s) => acc + qtyToGrams(s.qty), 0);
+  const header = `<div class="list-group-header${hasAlert?' alert':''}">
+    <div class="list-dot" style="background:${primary.color}">
+      <span class="list-dot-label" style="color:${getTextColor(primary.color)}">${esc(material.slice(0,4))}</span>
+    </div>
+    <div><div style="font-size:13px;font-weight:700">${esc(material)} · ${esc(colorName)}</div>
+    <div style="font-size:11px;color:var(--text2);font-family:ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',monospace;margin-top:2px">${groupSpools.length} bobines · ${totalGrams}g total</div></div>
+  </div>`;
+  const rows = groupSpools.map(s => `<div class="list-group-indent">${renderListRow(s)}</div>`).join('');
+  return header + rows;
+}
+
+// ─── RENDU PRINCIPAL ──────────────────────────────────────────────────
+function render() {
+  const items = getFiltered();
+  renderStats(items);
+  updateFilterCounts();
+  const container = document.getElementById('viewContainer');
+  if (!items.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🧵</div><h3>Aucune bobine</h3><p>Ajoutez votre première bobine<br>en cliquant sur "+ Bobine".</p></div>`;
+    return;
+  }
+  const groups = getSpoolGroups(items);
+  if (currentView === 'card') {
+    let html = '<div class="grid">';
+    for (const [key, gs] of groups) {
+      if (gs.length < 2)             html += renderCard(gs[0]);
+      else if (expandedGroups.has(key)) html += renderCardGroupExpanded(key, gs);
+      else                           html += renderCardGroup(key, gs);
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } else {
+    let html = '<div class="list">';
+    for (const [key, gs] of groups) {
+      html += gs.length < 2 ? renderListRow(gs[0]) : renderListGroup(key, gs);
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+}
+
+// Délégation pour le bouton de groupe
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.btn-group-toggle');
+  if (btn && btn.dataset.groupKey) { e.stopPropagation(); toggleGroup(btn.dataset.groupKey); }
+});
+
+// ─── COLOR PICKER ─────────────────────────────────────────────────────
+function buildColorRow(activeHex) {
+  const row = document.getElementById('colorRow');
+  row.innerHTML = getAllColors().map(c =>
+    `<div class="color-swatch${c.hex===activeHex?' selected':''}" style="background:${c.hex}" title="${esc(c.name)}" data-hex="${c.hex}"></div>`
+  ).join('') + `<input type="color" id="customColorInput" value="${activeHex}" title="Couleur personnalisée">`;
+  row.querySelectorAll('.color-swatch').forEach(el => el.addEventListener('click', () => selectColor(el.dataset.hex, el)));
+  document.getElementById('customColorInput').addEventListener('input', function() { selectColorCustom(this.value); });
+}
+function buildTraitsGrid(activeSet) {
+  selectedTraits = new Set(activeSet || []);
+  document.getElementById('traitsGrid').innerHTML = TRAITS.map(t =>
+    `<div class="trait-chip${selectedTraits.has(t.id)?' on':''}" data-trait="${t.id}" onclick="toggleTrait('${t.id}',this)"
+      style="${selectedTraits.has(t.id)?`border-color:${t.color};color:${t.color};background:${t.color}22`:''}">
+      ${t.icon} ${t.label}
+    </div>`
+  ).join('');
+}
+function toggleTrait(id, el) {
+  const t = TRAITS.find(x => x.id === id);
+  if (selectedTraits.has(id)) { selectedTraits.delete(id); el.classList.remove('on'); el.style.borderColor = el.style.color = el.style.background = ''; }
+  else { selectedTraits.add(id); el.classList.add('on'); el.style.borderColor = el.style.color = t.color; el.style.background = t.color+'22'; }
+}
+function traitsHTML(traits) {
+  if (!traits||!traits.length) return '';
+  return traits.map(id => { const t = TRAITS.find(x=>x.id===id); return t ? `<span class="trait-badge" style="color:${t.color}">${t.icon} ${t.label}</span>` : ''; }).join('');
+}
+function selectColor(hex, el) { selectedColor = hex; document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected')); el.classList.add('selected'); }
+function selectColorCustom(hex) { selectedColor = hex; document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected')); }
+
+// ─── MODAL BOBINE ─────────────────────────────────────────────────────
+function updateQtyDisplay(v) { document.getElementById('qtyDisplay').textContent = `${qtyToGrams(+v)}g · ${v}%`; }
+function getToggle(group) { const a = document.querySelector(`.form-toggle.active[data-group="${group}"]`); return a ? a.dataset.val : null; }
+function setToggle(group, val) { document.querySelectorAll(`.form-toggle[data-group="${group}"]`).forEach(b => b.classList.toggle('active', b.dataset.val === val)); }
+
+function buildSupportSelect(currentSupportId) {
+  const sel = document.getElementById('fSupport');
+  if (!sel) return;
+  let html = '<option value="">— Aucun support —</option>';
+  supports.forEach(sup => {
+    const otherHolder = spools.find(s => s.supportId === sup.id && s.id !== editingId);
+    const icon = supportTypeIcon(sup.type);
+    const noteStr = sup.notes ? ` · ${sup.notes}` : '';
+    const isSelected = sup.id === currentSupportId;
+    if (otherHolder) {
+      const ref = otherHolder.code || otherHolder.brand;
+      html += `<option value="${sup.id}" disabled style="color:var(--text2)">${esc(icon+' '+sup.id+noteStr)} → ${esc(ref)}</option>`;
+    } else {
+      html += `<option value="${sup.id}"${isSelected?' selected':''}>${esc(icon+' '+sup.id+noteStr)}</option>`;
+    }
+  });
+  sel.innerHTML = html;
+  if (currentSupportId && !spools.find(s => s.supportId === currentSupportId && s.id !== editingId)) sel.value = currentSupportId;
+}
+
+// Alimente la datalist des marques avec celles déjà utilisées dans l'inventaire
+function buildBrandDatalist() {
+  const dl = document.getElementById('brandList');
+  if (!dl) return;
+  const brands = [...new Set(spools.map(s => s.brand))].sort((a,b) => a.localeCompare(b,'fr'));
+  dl.innerHTML = brands.map(b => `<option value="${esc(b)}">`).join('');
+}
+
+function openAdd() {
+  editingId = null;
+  buildBrandDatalist();
+  document.getElementById('modalTitle').textContent = 'Nouvelle bobine';
+  document.getElementById('editId').value = '';
+  document.getElementById('fBrand').value = 'Bambu';
+  buildMaterialSelect('PLA');
+  document.getElementById('fQty').value = 100;
+  document.getElementById('fNotes').value = '';
+  updateQtyDisplay(100);
+  setToggle('pack','vacuum'); setToggle('loc','stock'); setToggle('type','mounted');
+  selectedColor = getAllColors()[0].hex;
+  buildColorRow(selectedColor); buildTraitsGrid([]); buildSupportSelect(null);
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('duplicateBtn').style.display = 'none';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function openEdit(id) {
+  const s = spools.find(x => x.id === id); if (!s) return;
+  editingId = id;
+  buildBrandDatalist();
+  document.getElementById('modalTitle').textContent = `Modifier · ${s.code || 'bobine'}`;
+  document.getElementById('editId').value = id;
+  document.getElementById('fBrand').value = s.brand;
+  buildMaterialSelect(s.material);
+  document.getElementById('fQty').value = s.qty;
+  document.getElementById('fNotes').value = s.notes || '';
+  updateQtyDisplay(s.qty);
+  setToggle('pack', s.pack); setToggle('loc', s.loc); setToggle('type', s.type);
+  selectedColor = s.color;
+  buildColorRow(selectedColor); buildTraitsGrid(s.traits||[]); buildSupportSelect(s.supportId||null);
+  document.getElementById('deleteBtn').style.display = 'inline-flex';
+  document.getElementById('duplicateBtn').style.display = 'inline-flex';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+
+function saveSpool() {
+  const now      = new Date().toISOString();
+  const brand    = document.getElementById('fBrand').value.trim() || 'Bambu';
+  const material = document.getElementById('fMaterial').value;
+  const qty      = +document.getElementById('fQty').value;
+  const pack     = getToggle('pack') || 'vacuum';
+  const loc      = getToggle('loc')  || 'stock';
+  const type     = getToggle('type') || 'mounted';
+  const notes    = document.getElementById('fNotes').value.trim();
+  const traits   = [...selectedTraits];
+  const newSupportId = document.getElementById('fSupport').value || null;
+  const colorObj = getAllColors().find(c => c.hex === selectedColor);
+  const colorName = colorObj ? colorObj.name : closestBaseColorName(selectedColor);
+
+  if (editingId) {
+    const idx = spools.findIndex(s => s.id === editingId);
+    const oldSnap = {...spools[idx]};
+    // Effet de bord intentionnel : si ce support était assigné à une autre bobine,
+    // on la désassigne silencieusement (règle one-to-one : un support = une bobine)
+    if (newSupportId) {
+      const prevHolder = spools.find(s => s.supportId === newSupportId && s.id !== editingId);
+      if (prevHolder) { prevHolder.supportId = null; prevHolder.lastModified = now; }
+    }
+    spools[idx] = { ...spools[idx], brand, material, qty, pack, loc, type, notes, traits, color: selectedColor, colorName, supportId: newSupportId, lastModified: now };
+    const changes = diffEntity(oldSnap, spools[idx], SPOOL_DIFF_FIELDS);
+    if (changes.length) {
+      addJournalEntry({ ts: now, action:'edited', entityType:'spool', entityId: editingId, entityCode: spools[idx].code || editingId, entityLabel: `${brand} ${material} ${colorName}`, changes });
+    }
+  } else {
+    // Désassignation de l'ancien propriétaire si besoin
+    if (newSupportId) {
+      const prevHolder = spools.find(s => s.supportId === newSupportId);
+      if (prevHolder) { prevHolder.supportId = null; prevHolder.lastModified = now; }
+    }
+    const code = generateSpoolCode(material, colorName);
+    spools.push({ id: uid(), brand, material, qty, pack, loc, type, notes, traits, color: selectedColor, colorName, supportId: newSupportId, code, createdAt: now, lastModified: now });
+    addJournalEntry({ ts: now, action:'created', entityType:'spool', entityId: spools[spools.length-1].id, entityCode: code, entityLabel: `${brand} ${material} ${colorName}`, changes: [] });
+  }
+  save(); closeModal(); render();
+  showToast(editingId ? '✓ Bobine mise à jour' : '✓ Bobine ajoutée');
+}
+
+function deleteSpool() {
+  if (!confirm('Supprimer cette bobine ?')) return;
+  const s = spools.find(x => x.id === editingId);
+  if (s) addJournalEntry({ ts: new Date().toISOString(), action:'deleted', entityType:'spool', entityId: s.id, entityCode: s.code||s.id, entityLabel: `${s.brand} ${s.material} ${s.colorName}`, changes:[] });
+  spools = spools.filter(s => s.id !== editingId);
+  save(); closeModal(); render();
+  showToast('🗑 Bobine supprimée');
+}
+
+// Crée une copie de la bobine en cours d'édition (qty remise à 100%, sans support assigné)
+function duplicateSpool() {
+  const s = spools.find(x => x.id === editingId); if (!s) return;
+  const now  = new Date().toISOString();
+  const code = generateSpoolCode(s.material, s.colorName);
+  const copy = { ...s, id: uid(), code, qty: 100, supportId: null, createdAt: now, lastModified: now };
+  spools.push(copy);
+  addJournalEntry({ ts: now, action:'created', entityType:'spool', entityId: copy.id, entityCode: code, entityLabel: `${s.brand} ${s.material} ${s.colorName}`, changes: [] });
+  save(); closeModal(); render();
+  showToast('⧉ Bobine dupliquée — quantité remise à 100%');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── EXPORT / IMPORT ──────────────────────────────────────────────────
+async function exportJSON() {
+  const data = { app:'FilStock Julok', version:1, appVersion:APP_VERSION, exportedAt: new Date().toISOString(), spools, supports };
+  const json = JSON.stringify(data, null, 2);
+  if (__TAURI_CTX) {
+    const { save: dialogSave } = await import('@tauri-apps/plugin-dialog');
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    const path = await dialogSave({
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      defaultPath: `filstock-${new Date().toISOString().slice(0,10)}.json`
+    });
+    if (path) { await writeTextFile(path, json); showToast('✓ Export enregistré'); }
+    return;
+  }
+  // Fallback navigateur
+  const blob = new Blob([json], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `filstock-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('✓ Export téléchargé');
+}
+
+// Sanitise et normalise un objet bobine importé (JSON externe ou ancienne version).
+// Chaque champ est validé ; les valeurs invalides sont remplacées par des défauts sûrs.
+function normalizeImportedSpool(s) {
+  return {
+    id:          s.id          || uid(),
+    brand:       s.brand       || 'Inconnu',
+    material:    s.material    || 'PLA',
+    colorName:   s.colorName   || 'Personnalisée',
+    color:       (s.color && /^#[0-9a-fA-F]{6}$/.test(s.color)) ? s.color : '#7a7a82',
+    qty:         (typeof s.qty==='number' && s.qty>=0 && s.qty<=100) ? Math.round(s.qty) : 100,
+    pack:        ['vacuum','open'].includes(s.pack)    ? s.pack  : 'vacuum',
+    loc:         ['stock','inuse'].includes(s.loc)     ? s.loc   : 'stock',
+    type:        ['mounted','refill'].includes(s.type) ? s.type  : 'mounted',
+    notes:       s.notes       || '',
+    traits:      Array.isArray(s.traits) ? s.traits.filter(t => TRAITS.some(x=>x.id===t)) : [],
+    code:        s.code        || null,
+    supportId:   s.supportId   || null,
+    createdAt:   s.createdAt   || new Date().toISOString(),
+    lastModified:s.lastModified|| new Date().toISOString(),
+  };
+}
+function normalizeImportedSupport(s) {
+  return {
+    id:    s.id    || generateSupportId(s.type||'normal'),
+    type:  ['normal','high-temp','very-high-temp'].includes(s.type) ? s.type : 'normal',
+    notes: s.notes || ''
+  };
+}
+
+function importJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const importedSpools   = Array.isArray(data) ? data : (Array.isArray(data.spools)   ? data.spools   : null);
+      const importedSupports = Array.isArray(data.supports) ? data.supports : [];
+      if (!importedSpools) throw new Error('Format invalide');
+      const validSpools   = importedSpools.filter(s => s&&s.id&&s.material).map(normalizeImportedSpool);
+      const validSupports = importedSupports.map(normalizeImportedSupport);
+      if (!validSpools.length) throw new Error('Aucune bobine valide trouvée');
+      const action = spools.length ? confirm(`Fusionner avec vos ${spools.length} bobine(s) existante(s) ?\n\nOK = fusionner (les doublons sont ignorés)\nAnnuler = remplacer tout`) : false;
+      if (action) {
+        const existingIds = new Set(spools.map(s => s.id));
+        const newOnes = validSpools.filter(s => !existingIds.has(s.id));
+        spools = [...spools, ...newOnes];
+        const existingSupIds = new Set(supports.map(s => s.id));
+        supports = [...supports, ...validSupports.filter(s => !existingSupIds.has(s.id))];
+        showToast(`✓ ${newOnes.length} bobine(s) importée(s) par fusion`);
+      } else {
+        spools = validSpools; supports = validSupports;
+        showToast(`✓ ${validSpools.length} bobine(s) importée(s)`);
+      }
+      syncCodeCounters(); migrateSpoolCodes();
+      saveSupports(); save(); render();
+    } catch(err) { alert('❌ Erreur d\'import : ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportJSON);
+document.getElementById('importBtn').addEventListener('click', async () => {
+  if (__TAURI_CTX) {
+    const { open: dialogOpen } = await import('@tauri-apps/plugin-dialog');
+    const { readTextFile } = await import('@tauri-apps/plugin-fs');
+    const path = await dialogOpen({ filters: [{ name: 'JSON', extensions: ['json'] }] });
+    if (path) {
+      const content = await readTextFile(path);
+      importJSON(new Blob([content], { type: 'application/json' }));
+    }
+    return;
+  }
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', e => { importJSON(e.target.files[0]); e.target.value = ''; });
+
+// ─── FILTRES & RECHERCHE ──────────────────────────────────────────────
+document.querySelectorAll('.filters .filter-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); currentFilter = btn.dataset.filter; render();
+  });
+});
+let _searchDebounce;
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchQ = e.target.value;
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(render, 150);
+});
+
+// ─── TRI & GROUPEMENT ─────────────────────────────────────────────────
+document.getElementById('sortBar').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  if (chip.dataset.group !== undefined) {
+    currentGroupMode = chip.dataset.group;
+    localStorage.setItem('filstock_groupMode', currentGroupMode);
+    _appData.groupMode = currentGroupMode; _flushToDisk();
+    document.querySelectorAll('#sortBar [data-group]').forEach(b => b.classList.toggle('active', b.dataset.group === currentGroupMode));
+    expandedGroups.clear();
+    render();
+  } else if (chip.dataset.sort !== undefined) {
+    currentSortMode = chip.dataset.sort;
+    localStorage.setItem('filstock_sortMode', currentSortMode);
+    _appData.sortMode = currentSortMode; _flushToDisk();
+    document.querySelectorAll('#sortBar [data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === currentSortMode));
+    render();
+  }
+});
+
+// ─── TOGGLE BOUTONS ───────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.form-toggle');
+  if (!btn || !btn.dataset.group) return;
+  document.querySelectorAll(`.form-toggle[data-group="${btn.dataset.group}"]`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+});
+
+// ─── ICÔNES SVG (style Feather — ligne fine 1.75px, bout arrondi) ────────
+// Identiques au style utilisé dans Claude.ai
+const ICONS = {
+  moon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+  sun:  `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  list: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>`,
+  grid: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+};
+
+// ─── THÈME ────────────────────────────────────────────────────────────
+const themeBtn = document.getElementById('themeBtn');
+function applyTheme(t) {
+  document.body.dataset.theme = t;
+  themeBtn.innerHTML = t === 'dark' ? ICONS.moon : ICONS.sun;
+  localStorage.setItem('filstock_theme', t);
+  _appData.theme = t; _flushToDisk();
+}
+themeBtn.addEventListener('click', () => applyTheme(document.body.dataset.theme==='dark'?'light':'dark'));
+applyTheme(_appData.theme ?? localStorage.getItem('filstock_theme') ?? 'dark');
+
+// ─── VUE ──────────────────────────────────────────────────────────────
+const viewBtn = document.getElementById('viewBtn');
+function applyView(v) { currentView = v; viewBtn.innerHTML = v === 'card' ? ICONS.list : ICONS.grid; }
+viewBtn.addEventListener('click', () => { applyView(currentView==='card'?'list':'card'); render(); });
+applyView('card'); // initialisation icône
+
+// ─── FERMETURE OVERLAYS ───────────────────────────────────────────────
+document.getElementById('overlay').addEventListener('click', e => { if (e.target===document.getElementById('overlay')) closeModal(); });
+document.getElementById('settingsOverlay').addEventListener('click', e => { if (e.target===document.getElementById('settingsOverlay')) closeSettings(); });
+document.getElementById('journalOverlay').addEventListener('click', e => { if (e.target===document.getElementById('journalOverlay')) closeJournal(); });
+document.getElementById('addBtn').addEventListener('click', openAdd);
+
+// ─── JOURNAL PANEL ────────────────────────────────────────────────────
+function openJournal() { renderJournal(); document.getElementById('journalOverlay').classList.add('open'); }
+function closeJournal() { document.getElementById('journalOverlay').classList.remove('open'); }
+
+function setJournalFilter(f) {
+  currentJournalFilter = f;
+  document.querySelectorAll('.journal-tab').forEach(t => t.classList.toggle('active', t.dataset.jfilter === f));
+  renderJournal();
+}
+
+function clearJournal() {
+  if (!confirm('Effacer tout le journal ?')) return;
+  localStorage.removeItem('filstock_journal');
+  localStorage.removeItem('filstock_last_modified');
+  delete _appData.journal; delete _appData.lastModified; _flushToDisk();
+  updateLastModifiedBadge();
+  renderJournal();
+  showToast('🗑 Journal effacé');
+}
+
+function renderJournal() {
+  const container = document.getElementById('journalEntries');
+  let j = JSON.parse(localStorage.getItem('filstock_journal') || JSON.stringify(_appData.journal || []));
+  if (currentJournalFilter === 'spool')   j = j.filter(e => e.entityType === 'spool');
+  if (currentJournalFilter === 'support') j = j.filter(e => e.entityType === 'support');
+  if (!j.length) { container.innerHTML = `<div class="journal-empty">📋 Aucune entrée dans le journal.</div>`; return; }
+  container.innerHTML = j.map(entry => {
+    const icon  = ACTION_ICONS[entry.action]  || '·';
+    const label = ACTION_LABELS[entry.action] || entry.action;
+    const changes = changesHTML(entry.changes || []);
+    return `<div class="journal-entry">
+      <div class="journal-entry-header">
+        <span class="journal-action-icon">${icon}</span>
+        <span class="journal-code">${esc(entry.entityCode||'')}</span>
+        <span class="journal-label">${esc(entry.entityLabel||'')} — ${esc(label)}</span>
+        <span class="journal-time">${timeAgo(entry.ts)}</span>
+      </div>
+      ${changes ? `<div class="journal-changes">${changes}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Journal tabs delegation
+document.getElementById('journalTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.journal-tab');
+  if (tab) setJournalFilter(tab.dataset.jfilter);
+});
+
+// Journal — bouton header + badge
+document.getElementById('journalBtn').addEventListener('click', openJournal);
+document.getElementById('lastModifiedBadge').addEventListener('click', openJournal);
+
+// ─── RÉGLAGES ─────────────────────────────────────────────────────────
+const settingsState = {
+  fontSize: _appData.settings?.fontSize ?? +localStorage.getItem('filstock_fontSize') || 100,
+  pastille: _appData.settings?.pastille ?? +localStorage.getItem('filstock_pastille') || 100,
+  btnSize:  _appData.settings?.btnSize  ?? +localStorage.getItem('filstock_btnSize')  || 100,
+};
+
+function applyScales() {
+  const root = document.documentElement;
+  const fs = settingsState.fontSize/100, ps = settingsState.pastille/100, bs = settingsState.btnSize/100;
+  root.style.setProperty('--app-font',(14*fs)+'px'); root.style.setProperty('--btn-size',(36*bs)+'px');
+  root.style.setProperty('--btn-font',(16*bs)+'px'); root.style.setProperty('--btn-add-font',(13*bs)+'px');
+  root.style.setProperty('--btn-small-size',(28*bs)+'px'); root.style.setProperty('--btn-small-font',(13*bs)+'px');
+  root.style.setProperty('--pastille-card-font',(26*ps)+'px'); root.style.setProperty('--pastille-list-font',(13*ps)+'px');
+}
+function saveScales() {
+  localStorage.setItem('filstock_fontSize', settingsState.fontSize);
+  localStorage.setItem('filstock_pastille', settingsState.pastille);
+  localStorage.setItem('filstock_btnSize',  settingsState.btnSize);
+  _appData.settings = { ...(_appData.settings || {}), ...settingsState };
+  _flushToDisk();
+}
+
+function buildMaterialSelect(current) {
+  const sel = document.getElementById('fMaterial'); if (!sel) return;
+  sel.innerHTML = getAllMaterials().map(m => `<option${m===current?' selected':''}>${esc(m)}</option>`).join('');
+}
+function renderMaterialList() {
+  const el = document.getElementById('materialList'); if (!el) return;
+  el.innerHTML = customMaterials.length
+    ? customMaterials.map((m,i) => `<div class="custom-item"><span class="custom-item-label">${esc(m)}</span><button class="custom-item-del" onclick="removeMaterial(${i})" title="Supprimer">✕</button></div>`).join('')
+    : '<div style="font-size:12px;color:var(--text2)">Aucune matière personnalisée.</div>';
+}
+function renderColorList() {
+  const el = document.getElementById('colorList'); if (!el) return;
+  el.innerHTML = customColors.length
+    ? customColors.map((c,i) => `<div class="custom-item"><div class="custom-item-dot" style="background:${c.hex}"></div><span class="custom-item-label">${esc(c.name)}</span><button class="custom-item-del" onclick="removeColor(${i})" title="Supprimer">✕</button></div>`).join('')
+    : '<div style="font-size:12px;color:var(--text2)">Aucune couleur personnalisée.</div>';
+}
+
+function addMaterial() {
+  const input = document.getElementById('newMaterial');
+  const val = input.value.trim().toUpperCase(); if (!val) return;
+  if (getAllMaterials().includes(val)) { showToast('⚠ Matière déjà existante'); return; }
+  customMaterials.push(val); saveSettings(); input.value = ''; renderMaterialList(); showToast('✓ Matière ajoutée');
+}
+function removeMaterial(i) { customMaterials.splice(i,1); saveSettings(); renderMaterialList(); }
+
+function addColor() {
+  const name = document.getElementById('newColorName').value.trim();
+  const hex  = document.getElementById('newColorHex').value;
+  if (!name) { showToast('⚠ Saisir un nom de couleur'); return; }
+  if (getAllColors().find(c => c.name.toLowerCase()===name.toLowerCase())) { showToast('⚠ Couleur déjà existante'); return; }
+  customColors.push({name, hex}); saveSettings();
+  document.getElementById('newColorName').value = '';
+  document.getElementById('newColorHex').value = '#ff0000';
+  renderColorList(); showToast('✓ Couleur ajoutée');
+}
+function removeColor(i) { customColors.splice(i,1); saveSettings(); renderColorList(); }
+
+function openSettings() {
+  document.getElementById('slFontSize').value = settingsState.fontSize;
+  document.getElementById('slPastille').value = settingsState.pastille;
+  document.getElementById('slBtnSize').value  = settingsState.btnSize;
+  document.getElementById('valFontSize').textContent = settingsState.fontSize+'%';
+  document.getElementById('valPastille').textContent = settingsState.pastille+'%';
+  document.getElementById('valBtnSize').textContent  = settingsState.btnSize+'%';
+  renderMaterialList(); renderColorList(); renderSupportList();
+  // Preview ID support
+  const typeEl = document.getElementById('newSupportType');
+  if (typeEl) document.getElementById('supportIdPreview').textContent = generateSupportId(typeEl.value);
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+
+['slFontSize','slPastille','slBtnSize'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    const map = {slFontSize:'fontSize',slPastille:'pastille',slBtnSize:'btnSize'};
+    const valMap = {slFontSize:'valFontSize',slPastille:'valPastille',slBtnSize:'valBtnSize'};
+    settingsState[map[id]] = +this.value;
+    document.getElementById(valMap[id]).textContent = this.value+'%';
+    saveScales(); applyScales();
+  });
+});
+
+document.getElementById('newMaterial').addEventListener('keydown', e => { if (e.key==='Enter') addMaterial(); });
+document.getElementById('newColorName').addEventListener('keydown', e => { if (e.key==='Enter') addColor(); });
+document.getElementById('newColorHex').addEventListener('input', function() {
+  const nameInput = document.getElementById('newColorName');
+  if (!nameInput.value.trim()) nameInput.value = closestBaseColorName(this.value);
+});
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+// ─── SUPPORTS ─────────────────────────────────────────────────────────
+function renderSupportList() {
+  const el = document.getElementById('supportList'); if (!el) return;
+  if (!supports.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text2)">Aucun support créé.</div>'; return; }
+  el.innerHTML = supports.map((sup, i) => {
+    const holder = spools.find(s => s.supportId === sup.id);
+    const holderStr = holder ? `<span class="custom-item-sub">→ ${esc(holder.code || holder.brand)}</span>` : '';
+    const noteStr = sup.notes ? `<span class="custom-item-sub"> · ${esc(sup.notes)}</span>` : '';
+    const icon = supportTypeIcon(sup.type);
+    const cls  = supportTypeCls(sup.type);
+    const canDel = !holder;
+    return `<div class="custom-item">
+      <span class="support-badge support-badge-${cls}" style="flex-shrink:0">${icon}</span>
+      <span class="custom-item-label">${esc(sup.id)}${noteStr}${holderStr}</span>
+      <button class="custom-item-del" onclick="deleteSupport('${sup.id}')" title="${canDel?'Supprimer':'Encore assigné'}" ${canDel?'':' disabled'}>✕</button>
+    </div>`;
+  }).join('');
+}
+
+function addSupport() {
+  const type  = document.getElementById('newSupportType').value;
+  const notes = document.getElementById('newSupportNotes').value.trim();
+  const id = generateSupportId(type);
+  const sup = {id, type, notes};
+  supports.push(sup); saveSupports();
+  addJournalEntry({ ts: new Date().toISOString(), action:'support_created', entityType:'support', entityId:id, entityCode:id, entityLabel:`Support ${id}${notes?' · '+notes:''}`, changes:[] });
+  document.getElementById('newSupportNotes').value = '';
+  document.getElementById('supportIdPreview').textContent = generateSupportId(type);
+  renderSupportList(); showToast(`✓ Support ${id} créé`);
+}
+
+function deleteSupport(id) {
+  const holder = spools.find(s => s.supportId === id);
+  if (holder) { showToast(`⚠ Support assigné à ${holder.code || holder.brand}`); return; }
+  supports = supports.filter(s => s.id !== id);
+  addJournalEntry({ ts: new Date().toISOString(), action:'support_deleted', entityType:'support', entityId:id, entityCode:id, entityLabel:`Support ${id}`, changes:[] });
+  saveSupports(); renderSupportList(); showToast(`🗑 Support ${id} supprimé`);
+}
+
+// Mise à jour du preview d'ID quand le type change
+document.getElementById('newSupportType').addEventListener('change', function() {
+  document.getElementById('supportIdPreview').textContent = generateSupportId(this.value);
+});
+
+// ─── RACCOURCIS CLAVIER ───────────────────────────────────────────────
+// N = nouvelle bobine | / = focus recherche | Escape = fermer panels
+document.addEventListener('keydown', e => {
+  // Ne pas intercepter si un champ est actif
+  if (e.target.matches('input, textarea, select, button')) return;
+  if (e.key === 'n' || e.key === 'N') { openAdd(); e.preventDefault(); }
+  if (e.key === '/')                  { document.getElementById('searchInput').focus(); e.preventDefault(); }
+});
+// Escape : fermer le panel ouvert (modal > settings > journal)
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('overlay').classList.contains('open'))         { closeModal();    return; }
+  if (document.getElementById('settingsOverlay').classList.contains('open')) { closeSettings(); return; }
+  if (document.getElementById('journalOverlay').classList.contains('open'))  { closeJournal();  return; }
+});
+// Ctrl+Enter (ou Cmd+Enter) dans la modal pour sauvegarder sans quitter le clavier
+document.getElementById('overlay').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); saveSpool(); }
+});
+
+// ─── DONNÉES D'EXEMPLE ────────────────────────────────────────────────
+if (!spools.length) {
+  spools = [
+    {id:uid(),brand:'Bambu',material:'PLA',colorName:'Noir',color:'#1a1a1a',qty:85,pack:'open',loc:'inuse',type:'mounted',traits:[],supportId:null,notes:''},
+    {id:uid(),brand:'Bambu',material:'PETG',colorName:'Blanc',color:'#f0eeea',qty:30,pack:'open',loc:'inuse',type:'mounted',traits:[],supportId:null,notes:''},
+    {id:uid(),brand:'Bambu',material:'PETG',colorName:'Blanc',color:'#f0eeea',qty:100,pack:'vacuum',loc:'stock',type:'refill',traits:[],supportId:null,notes:'Recharge neuve'},
+    {id:uid(),brand:'Bambu',material:'ABS',colorName:'Rouge',color:'#e83030',qty:15,pack:'open',loc:'stock',type:'refill',traits:[],supportId:null,notes:'Presque vide !'},
+    {id:uid(),brand:'Bambu',material:'ASA',colorName:'Gris',color:'#7a7a82',qty:50,pack:'open',loc:'stock',type:'mounted',traits:[],supportId:null,notes:''},
+    {id:uid(),brand:'Polymaker',material:'PLA',colorName:'Bleu',color:'#1a78e8',qty:72,pack:'vacuum',loc:'stock',type:'mounted',traits:[],supportId:null,notes:'Neuve'},
+    {id:uid(),brand:'Bambu',material:'TPU',colorName:'Orange',color:'#ff6d1f',qty:10,pack:'open',loc:'stock',type:'refill',traits:['flexible'],supportId:null,notes:''},
+  ];
+  save();
+}
+
+// ─── DÉMARRAGE ────────────────────────────────────────────────────────
+document.getElementById('versionBadge').textContent = 'v' + APP_VERSION;
+syncCodeCounters();
+migrateSpoolCodes();
+buildMaterialSelect('PLA');
+applyScales();
+updateLastModifiedBadge();
+// Synchroniser les chips sort/group avec les préférences chargées depuis localStorage
+document.querySelectorAll('#sortBar [data-group]').forEach(b => b.classList.toggle('active', b.dataset.group === currentGroupMode));
+document.querySelectorAll('#sortBar [data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === currentSortMode));
+render();
+</script>
+</body>
+</html>
