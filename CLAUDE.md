@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**FilStock** is a single-file web application for managing 3D printer filament inventory. It has no build system, no dependencies, and no test suite — open `filstock.html` directly in any modern browser. All data persists in browser localStorage.
+**FilStock** is a single-file web application for managing 3D printer filament inventory. It has no build system, no dependencies, and no test suite — open `index.html` directly in any modern browser. All data persists in browser localStorage.
 
 ## Development
 
-No build, install, or lint steps. To run the app, open `filstock.html` in a browser (double-click or `file://` URL). All logic, styles, and markup live in this one file (~1,444 lines).
+No build, install, or lint steps. To run the app, open `index.html` in a browser (double-click or `file://` URL). All logic, styles, and markup live in this one file (~1,500+ lines).
 
 ## Architecture
 
-The entire application is `filstock.html`, structured as:
+The entire application is `index.html`, structured as:
 
-1. **CSS** (~360 lines): CSS custom properties for dark/light themes, responsive grid layout
+1. **CSS** (~380 lines): CSS custom properties for dark/light themes, responsive grid layout
 2. **HTML** (~200 lines): Static shell — header, filter bar, stats bar, modal overlay, settings panel, journal panel
 3. **JavaScript** (~900 lines): All application logic, inline in a `<script>` tag
 
@@ -58,6 +58,30 @@ State is stored in `localStorage` and loaded at startup. Key storage keys:
 - **Support assignment** is one-to-one: assigning a support removes it from its previous spool automatically.
 - **Journal** diffs are field-by-field comparisons captured in `addJournalEntry()` before any mutation.
 - `render()` rebuilds the entire view from state on every change — no partial DOM updates.
+
+---
+
+## Règles permanentes
+
+### Versioning
+Avant chaque commit apportant une modification visible dans l'appli, incrémenter `APP_VERSION` dans `index.html` :
+- **Patch** (corrections, ajustements visuels) : bump du sous-numéro (ex. `1.3` → `1.4`)
+- **Feature** (nouvelle fonctionnalité) : bump du numéro principal (ex. `1.3` → `2.0`)
+
+La valeur affichée dans l'UI doit toujours refléter le dernier état committé.
+
+### Thème sombre/clair — zéro couleur hardcodée
+Toutes les couleurs dans les règles CSS doivent utiliser des tokens CSS (`var(--bg)`, `var(--text)`, `var(--accent)`, `var(--border)`, etc.).
+
+**Interdit :** hex codes, `rgb()`, `rgba()` avec des valeurs absolues dans les sélecteurs de composants.
+
+**Exception autorisée :** sélecteurs scopés `[data-theme="light"] .composant { … }` pour des surcharges light spécifiques, ou `[data-theme="dark"] .composant { … }` pour des surcharges dark spécifiques.
+
+Cette règle s'applique aussi aux **styles inline injectés en JS** — utiliser `var(--border)`, `var(--bg2)`, etc. plutôt que des valeurs rgba absolues.
+
+Pour les couleurs semi-transparentes basées sur l'accent, définir `--accent-rgb` dans `:root` et utiliser `rgba(var(--accent-rgb), .12)` plutôt que les valeurs rgb codées en dur.
+
+---
 
 ## Licensing Note
 
