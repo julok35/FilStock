@@ -81,6 +81,17 @@ Cette règle s'applique aussi aux **styles inline injectés en JS** — utiliser
 
 Pour les couleurs semi-transparentes basées sur l'accent, définir `--accent-rgb` dans `:root` et utiliser `rgba(var(--accent-rgb), .12)` plutôt que les valeurs rgb codées en dur.
 
+### Hiérarchie visuelle des tokens CSS — boutons toujours distinguables
+
+L'application utilise une hiérarchie de fonds : `--bg` (page) < `--bg2` (cartes, lignes) < `--bg3` (inputs, états hover, boutons internes).
+
+**Règle obligatoire :** les boutons *à l'intérieur* d'une carte ou d'une ligne (`.btn-small` dans `.list-row`, `.card-actions`, etc.) doivent utiliser `--bg3` comme fond — jamais `--bg2`. Si le bouton et son conteneur partagent le même token, le bouton devient invisible lors du changement de thème.
+
+**Checklist avant chaque commit d'UI :**
+1. Basculer en thème **clair** et vérifier que tous les boutons d'action sont visuellement distincts de leur fond.
+2. Refaire le même test en thème **sombre**.
+3. Si un bouton est indiscernable, remonter d'un niveau dans la hiérarchie (`--bg2` → `--bg3`).
+
 ### Responsive mobile — zéro débordement dans les conteneurs flex/grid
 
 Tout conteneur `display: flex` contenant plusieurs boutons ou éléments d'action **doit** avoir `flex-wrap: wrap` ou être explicitement testé à ≤ 375px.
