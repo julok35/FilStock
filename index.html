@@ -6,22 +6,26 @@
 <title>FilStock Julok</title>
 <style>
   :root {
-    --bg: #0d0d0f;
-    --bg2: #141416;
-    --bg3: #1c1c1f;
-    --border: #2a2a2e;
-    --text: #f0f0f2;
-    --text2: #8a8a94;
-    --accent: #ff5f1f;
-    --accent-rgb: 255,95,31;
-    --accent2: #ff8c57;
-    --danger: #ff3b3b;
-    --warn: #ffb800;
-    --ok: #00d084;
-    --radius: 14px;
-    --shadow: 0 4px 24px rgba(0,0,0,.45);
+    /* ── Anthropic / Claude warm dark palette ── */
+    --bg:     #141413;   /* fond principal — noir chaud Claude */
+    --bg2:    #1c1b18;   /* cartes, panels */
+    --bg3:    #262420;   /* inputs, zones hover */
+    --border: #3a3733;   /* séparateurs */
+    --text:   #ede8e1;   /* texte primaire */
+    --text2:  #9a9589;   /* texte secondaire */
+    /* Crail terracotta — couleur officielle Claude */
+    --accent:  #c15f3c;
+    --accent2: #d4805e;  /* hover */
+    /* Sémantique (tons réchauffés) */
+    --danger: #e05252;
+    --warn:   #d4952c;
+    --ok:     #2db67d;
+    /* Layout */
+    --radius: 12px;      /* légèrement réduit vs 14px */
+    /* Ombre multi-couche chaude (contact + ambiante) */
+    --shadow: 0 1px 3px rgba(0,0,0,.28), 0 6px 20px rgba(0,0,0,.22);
     --btn-size: 36px;
-    --btn-font: 16px;
+    --btn-font: 18px;
     --btn-add-font: 13px;
     --btn-small-size: 28px;
     --btn-small-font: 13px;
@@ -30,13 +34,19 @@
     --app-font: 14px;
   }
   [data-theme="light"] {
-    --bg: #f5f4f0; --bg2: #ffffff; --bg3: #eae9e5;
-    --border: #d8d7d2; --text: #1a1a1e; --text2: #6a6a74;
-    --shadow: 0 4px 24px rgba(0,0,0,.10);
+    /* ── Anthropic / Claude warm light palette ── */
+    --bg:     #f4f3ee;   /* Pampas crème — fond officiel Claude */
+    --bg2:    #ffffff;
+    --bg3:    #eae8e1;
+    --border: #d4d1c7;
+    --text:   #1a1714;
+    --text2:  #6b6659;
+    --shadow: 0 1px 3px rgba(0,0,0,.07), 0 6px 20px rgba(0,0,0,.05);
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+    /* Inter prioritaire (présent nativement sur macOS 14+ / iOS 17+ / Windows 11) */
+    font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     font-size: var(--app-font); background: var(--bg); color: var(--text);
     min-height: 100vh; transition: background .25s, color .25s;
   }
@@ -68,19 +78,18 @@
   .header-actions { display: flex; gap: 8px; align-items: center; }
   .btn-icon {
     background: var(--bg3); border: 1px solid var(--border);
-    color: var(--text); cursor: pointer; border-radius: 10px;
+    color: var(--text2); cursor: pointer; border-radius: 9px;
     width: var(--btn-size); height: var(--btn-size);
     display: flex; align-items: center; justify-content: center;
-    font-size: var(--btn-font);
-    transition: width .15s, height .15s, font-size .15s, background .15s, border-color .15s;
+    transition: background .15s, border-color .15s, color .15s;
   }
   .btn-icon:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn-add {
     background: var(--accent); border: none; color: #fff;
-    font-family: inherit; font-weight: 700; font-size: var(--btn-add-font);
-    padding: 0 16px; height: var(--btn-size); border-radius: 10px; cursor: pointer;
-    display: flex; align-items: center; gap: 6px; transition: background .15s, height .15s;
-    white-space: nowrap;
+    font-family: inherit; font-weight: 600; font-size: var(--btn-add-font);
+    padding: 0 16px; height: var(--btn-size); border-radius: 9px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: background .15s;
+    white-space: nowrap; letter-spacing: .01em;
   }
   .btn-add:hover { background: var(--accent2); }
 
@@ -129,10 +138,10 @@
   .card {
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: var(--radius); overflow: hidden;
-    cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
+    cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s;
     position: relative;
   }
-  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--accent); }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent); }
   .card.alert { border-color: var(--danger); }
   .card.alert::after {
     content: '⚠ PRESQUE VIDE'; position: absolute; top: 8px; right: 8px;
@@ -152,13 +161,13 @@
   .card-title { font-size: 14px; font-weight: 700; line-height: 1.2; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card-code-badge {
     font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace;
-    font-size: 10px; color: var(--accent); background: rgba(var(--accent-rgb),.12);
-    padding: 2px 7px; border-radius: 5px; border: 1px solid rgba(var(--accent-rgb),.2);
+    font-size: 10px; color: var(--accent); background: rgba(193,95,60,.12);
+    padding: 2px 7px; border-radius: 5px; border: 1px solid rgba(193,95,60,.25);
     display: inline-block; margin-bottom: 6px; letter-spacing: .3px;
   }
   .card-sub { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); margin-bottom: 10px; }
-  .qty-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
-  .qty-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+  .qty-bar { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+  .qty-fill { height: 100%; border-radius: 3px; transition: width .3s; }
   .qty-fill.hi { background: var(--ok); } .qty-fill.mid { background: var(--warn); } .qty-fill.lo { background: var(--danger); }
   .card-footer { display: flex; flex-direction: column; gap: 6px; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--text2); }
   .card-footer-top { display: flex; justify-content: space-between; align-items: center; }
@@ -178,7 +187,7 @@
   .card-actions { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
   .card:hover .card-actions { opacity: 1; }
   .btn-small {
-    background: var(--bg2); backdrop-filter: blur(4px);
+    background: rgba(20,20,19,.88); backdrop-filter: blur(6px);
     border: 1px solid var(--border); color: var(--text); border-radius: 7px;
     width: var(--btn-small-size); height: var(--btn-small-size);
     display: flex; align-items: center; justify-content: center;
@@ -203,7 +212,7 @@
   .traits-grid { display: flex; flex-wrap: wrap; gap: 7px; }
   .trait-chip { background: var(--bg3); border: 1.5px solid var(--border); color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; padding: 5px 11px; border-radius: 20px; cursor: pointer; transition: all .14s; user-select: none; display: flex; align-items: center; gap: 5px; }
   .trait-chip:hover { border-color: var(--accent); color: var(--text); }
-  .trait-chip.on { border-color: var(--accent); background: rgba(var(--accent-rgb),.15); color: var(--accent); font-weight: 600; }
+  .trait-chip.on { border-color: var(--accent); background: rgba(193,95,60,.15); color: var(--accent); font-weight: 600; }
   .trait-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-weight: 600; border: 1px solid currentColor; opacity: .9; display: inline-flex; align-items: center; gap: 3px; }
 
   /* ── GROUPED CARDS (bobines redondantes) ── */
@@ -246,7 +255,7 @@
   .list { display: flex; flex-direction: column; gap: 6px; }
   .list-row {
     background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 16px;
+    border-radius: 9px; padding: 10px 16px;
     display: grid; grid-template-columns: 48px 1fr auto auto auto;
     align-items: center; gap: 14px; cursor: pointer; transition: border-color .15s;
   }
@@ -257,12 +266,12 @@
   .list-info { min-width: 0; }
   .list-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .list-sub { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
-  .list-code { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--accent); background: rgba(var(--accent-rgb),.12); padding: 1px 5px; border-radius: 4px; }
+  .list-code { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 10px; color: var(--accent); background: rgba(193,95,60,.12); padding: 1px 5px; border-radius: 4px; }
   .list-qty { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 13px; text-align: right; white-space: nowrap; }
   .list-tags { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
   .list-actions { display: flex; gap: 4px; }
   .list-group-header {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 9px;
     padding: 8px 16px; display: flex; align-items: center; gap: 12px;
     font-size: 13px; font-weight: 700;
   }
@@ -278,12 +287,12 @@
   /* ── MODAL ── */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s; }
   .overlay.open { opacity: 1; pointer-events: all; }
-  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; transform: translateY(16px); transition: transform .2s; padding: 28px; }
+  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; transform: translateY(14px); transition: transform .2s; padding: 28px; }
   .overlay.open .modal { transform: translateY(0); }
   .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 22px; }
   .form-group { margin-bottom: 16px; }
   .form-label { display: block; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; color: var(--text2); margin-bottom: 6px; letter-spacing: .5px; }
-  .form-input, .form-select { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 14px; padding: 10px 14px; border-radius: 10px; outline: none; transition: border-color .15s; -webkit-appearance: none; }
+  .form-input, .form-select { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 14px; padding: 10px 14px; border-radius: 8px; outline: none; transition: border-color .15s; -webkit-appearance: none; }
   .form-input:focus, .form-select:focus { border-color: var(--accent); }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .color-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -297,10 +306,11 @@
   .form-toggle { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', monospace; font-size: 11px; padding: 8px; border-radius: 8px; cursor: pointer; text-align: center; transition: all .12s; }
   .form-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .modal-footer { display: flex; gap: 10px; margin-top: 24px; justify-content: flex-end; }
-  .btn-cancel { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 10px; cursor: pointer; transition: all .12s; }
-  .btn-save { background: var(--accent); border: none; color: #fff; font-family: inherit; font-weight: 700; font-size: 13px; padding: 10px 24px; border-radius: 10px; cursor: pointer; transition: all .12s; }
+  .btn-cancel { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-weight: 500; font-size: 13px; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all .12s; }
+  .btn-cancel:hover { border-color: var(--accent2); color: var(--accent); }
+  .btn-save { background: var(--accent); border: none; color: #fff; font-family: inherit; font-weight: 600; font-size: 13px; padding: 10px 24px; border-radius: 8px; cursor: pointer; transition: background .12s; }
   .btn-save:hover { background: var(--accent2); }
-  .btn-delete { background: transparent; border: 1px solid var(--danger); color: var(--danger); font-family: inherit; font-weight: 600; font-size: 13px; padding: 10px 16px; border-radius: 10px; cursor: pointer; transition: all .12s; margin-right: auto; }
+  .btn-delete { background: transparent; border: 1px solid var(--danger); color: var(--danger); font-family: inherit; font-weight: 500; font-size: 13px; padding: 10px 16px; border-radius: 8px; cursor: pointer; transition: all .12s; margin-right: auto; }
   .btn-delete:hover { background: var(--danger); color: #fff; }
 
   /* ── EMPTY STATE ── */
@@ -391,13 +401,22 @@
     <span class="last-modified-badge" id="lastModifiedBadge" title="Voir le journal des modifications" style="display:none"></span>
   </div>
   <div class="header-actions">
-    <button class="btn-icon" id="themeBtn" title="Thème">🌙</button>
-    <button class="btn-icon" id="viewBtn" title="Changer de vue">☰</button>
-    <button class="btn-icon" id="exportBtn" title="Exporter en JSON">⬇</button>
-    <button class="btn-icon" id="importBtn" title="Importer un JSON">⬆</button>
-    <button class="btn-icon" id="settingsBtn" title="Réglages">⚙</button>
+    <button class="btn-icon" id="themeBtn" title="Thème"></button>
+    <button class="btn-icon" id="viewBtn" title="Changer de vue"></button>
+    <button class="btn-icon" id="exportBtn" title="Exporter en JSON">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+    <button class="btn-icon" id="importBtn" title="Importer un JSON">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </button>
+    <button class="btn-icon" id="settingsBtn" title="Réglages">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
     <input type="file" id="importFile" accept=".json" style="display:none">
-    <button class="btn-add" id="addBtn">＋ Bobine</button>
+    <button class="btn-add" id="addBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Bobine
+    </button>
   </div>
 </header>
 
@@ -1392,15 +1411,30 @@ document.addEventListener('click', e => {
   btn.classList.add('active');
 });
 
+// ─── ICÔNES SVG (style Feather — ligne fine 1.75px, bout arrondi) ────────
+// Identiques au style utilisé dans Claude.ai
+const ICONS = {
+  moon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+  sun:  `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  list: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>`,
+  grid: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+};
+
 // ─── THÈME ────────────────────────────────────────────────────────────
 const themeBtn = document.getElementById('themeBtn');
-function applyTheme(t) { document.body.dataset.theme = t; themeBtn.textContent = t==='dark'?'🌙':'☀️'; localStorage.setItem('filstock_theme',t); }
+function applyTheme(t) {
+  document.body.dataset.theme = t;
+  themeBtn.innerHTML = t === 'dark' ? ICONS.moon : ICONS.sun;
+  localStorage.setItem('filstock_theme', t);
+}
 themeBtn.addEventListener('click', () => applyTheme(document.body.dataset.theme==='dark'?'light':'dark'));
 applyTheme(localStorage.getItem('filstock_theme') || 'dark');
 
 // ─── VUE ──────────────────────────────────────────────────────────────
 const viewBtn = document.getElementById('viewBtn');
-viewBtn.addEventListener('click', () => { currentView = currentView==='card'?'list':'card'; viewBtn.textContent = currentView==='card'?'☰':'⊞'; render(); });
+function applyView(v) { currentView = v; viewBtn.innerHTML = v === 'card' ? ICONS.list : ICONS.grid; }
+viewBtn.addEventListener('click', () => { applyView(currentView==='card'?'list':'card'); render(); });
+applyView('card'); // initialisation icône
 
 // ─── FERMETURE OVERLAYS ───────────────────────────────────────────────
 document.getElementById('overlay').addEventListener('click', e => { if (e.target===document.getElementById('overlay')) closeModal(); });
