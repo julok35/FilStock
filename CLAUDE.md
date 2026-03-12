@@ -81,6 +81,18 @@ Cette règle s'applique aussi aux **styles inline injectés en JS** — utiliser
 
 Pour les couleurs semi-transparentes basées sur l'accent, définir `--accent-rgb` dans `:root` et utiliser `rgba(var(--accent-rgb), .12)` plutôt que les valeurs rgb codées en dur.
 
+### Responsive mobile — zéro débordement dans les conteneurs flex/grid
+
+Tout conteneur `display: flex` contenant plusieurs boutons ou éléments d'action **doit** avoir `flex-wrap: wrap` ou être explicitement testé à ≤ 375px.
+
+**Checklist obligatoire pour toute nouvelle UI :**
+- Les footers de modal avec ≥ 2 boutons : `flex-wrap: wrap` + règle `@media (max-width: 600px)` avec `flex-direction: column-reverse` et `width: 100%` sur chaque bouton
+- Les grilles 2 colonnes (`grid-template-columns: 1fr 1fr`) : prévoir un breakpoint `@media (max-width: 600px)` pour passer à `1fr`
+- Le padding interne des modals/panels : réduire à `≤ 16px` horizontal sur mobile
+- Les lignes `display: flex` sans `flex-wrap` : vérifier que les enfants ont `flex-shrink` ou `min-width: 0` pour éviter tout overflow caché
+
+**Interdit :** ajouter un `display: flex` multi-éléments sur une ligne sans vérifier que cela reste lisible à 320px de large.
+
 ---
 
 ## Licensing Note
