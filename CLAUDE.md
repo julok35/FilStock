@@ -139,6 +139,69 @@ Toutes les couleurs dans les règles CSS doivent utiliser des tokens CSS (`var(-
 
 Les boutons dans les cartes/lignes doivent utiliser `--bg3` comme fond — jamais `--bg2`.
 
+## CI GitHub Actions — règles obligatoires
+
+### Icônes Tauri — ne jamais commiter des PNG générés manuellement
+
+`tauri::generate_context!()` est une proc macro Rust qui **ouvre et décode** chaque fichier listé dans `bundle.icon` de `tauri.conf.json` au moment de la compilation. Un PNG trop petit ou mal formé provoque :
+
+```
+error: proc macro panicked — failed to open icon …/icons/icon.png: No such file or directory
+```
+
+**Règle :** les icônes doivent être **générées en CI** via `npx tauri icon`, jamais commitées manuellement. Le workflow génère une image source valide par Python, puis appelle `tauri icon` pour produire tous les formats.
+
+```yaml
+- name: Generate Tauri icons
+  run: |
+    python3 - <<'PYEOF'
+    import struct, zlib, os
+    def make_png(w, h, r=33, g=150, b=243):
+        def chunk(tag, data):
+            crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+            return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
+        raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
+        return (b'\x89PNG\r\n\x1a\n'
+                + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+                + chunk(b'IDAT', zlib.compress(raw, 9))
+                + chunk(b'IEND', b''))
+    os.makedirs('src-tauri/icons', exist_ok=True)
+    open('app-icon.png', 'wb').write(make_png(512, 512))
+    PYEOF
+    npx tauri icon app-icon.png
+```
+
+**`tauri.conf.json` doit lister les formats standards** (ceux que `tauri icon` génère) :
+
+```json
+"icon": [
+  "icons/32x32.png",
+  "icons/128x128.png",
+  "icons/128x128@2x.png",
+  "icons/icon.icns",
+  "icons/icon.ico"
+]
+```
+
+### Script `tauri` dans `package.json` — obligatoire
+
+Gradle (`rustBuildArm64Debug`) appelle `npm run tauri` pendant la compilation Rust Android. Sans ce script, le build échoue avec `npm error Missing script: "tauri"`.
+
+**`package.json` doit toujours contenir :**
+
+```json
+"scripts": {
+  "tauri": "tauri",
+  "dev": "tauri dev",
+  "build": "tauri build",
+  "android": "tauri android build"
+}
+```
+
+### Cache Rust dans CI — désactivé jusqu'au premier build réussi
+
+`Swatinem/rust-cache` peut restaurer un état partiel issu d'un run raté, ce qui fausse les compilations suivantes. Ne pas l'activer tant qu'un premier build complet n'a pas réussi.
+
 ## Checklist avant chaque commit
 
 1. `npm run dev` → vérifier que l'app démarre sans erreur
