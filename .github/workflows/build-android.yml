@@ -13,14 +13,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Vérification immédiate — confirme que les icônes sont dans le repo
-      - name: Verify icons exist
-        run: |
-          echo "=== Contenu src-tauri/icons/ ==="
-          ls -la src-tauri/icons/
-          echo "=== Magic bytes icon.png ==="
-          od -An -tx1 src-tauri/icons/icon.png | head -1
-
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -40,9 +32,6 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
-      # Cache désactivé — le cache Rust des runs précédents (build raté) peut corrompre l'état
-      # Réactiver une fois que le premier build complet réussit
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -50,6 +39,34 @@ jobs:
 
       - name: Install npm dependencies
         run: npm install
+
+      - name: Generate Tauri icons
+        run: |
+          # Crée une image source 512x512 valide via Python (pas de dépendance externe)
+          python3 - <<'PYEOF'
+          import struct, zlib, os
+
+          def make_png(w, h, r=33, g=150, b=243):
+              def chunk(tag, data):
+                  crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+                  return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
+              raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
+              return (b'\x89PNG\r\n\x1a\n'
+                      + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+                      + chunk(b'IDAT', zlib.compress(raw, 9))
+                      + chunk(b'IEND', b''))
+
+          os.makedirs('src-tauri/icons', exist_ok=True)
+          with open('app-icon.png', 'wb') as f:
+              f.write(make_png(512, 512))
+          print('Source icon app-icon.png created (512x512)')
+          PYEOF
+
+          # Génère tous les formats d'icônes requis par Tauri (desktop + Android)
+          npx tauri icon app-icon.png
+
+          echo "=== Icônes générées ==="
+          ls -la src-tauri/icons/
 
       - name: Initialize Tauri Android project
         run: npx tauri android init
