@@ -45,27 +45,6 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
-      # Génère un icon.png 512×512 minimal (bleu FilStock) — requis par generate_context!()
-      - name: Generate placeholder icons
-        run: |
-          mkdir -p src-tauri/icons
-          python3 << 'EOF'
-          import struct, zlib
-          def make_png(size, r, g, b):
-              def chunk(name, data):
-                  c = zlib.crc32(name + data) & 0xffffffff
-                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', c)
-              sig = b'\x89PNG\r\n\x1a\n'
-              ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0))
-              raw = b''.join(b'\x00' + bytes([r, g, b]) * size for _ in range(size))
-              idat = chunk(b'IDAT', zlib.compress(raw))
-              iend = chunk(b'IEND', b'')
-              return sig + ihdr + idat + iend
-          for name, sz in [('icon', 512), ('32x32', 32), ('128x128', 128), ('128x128@2x', 256)]:
-              with open(f'src-tauri/icons/{name}.png', 'wb') as f:
-                  f.write(make_png(sz, 0, 120, 200))
-          EOF
-
       - name: Initialize Tauri Android project
         run: npx tauri android init
         env:
