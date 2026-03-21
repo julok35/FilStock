@@ -1,0 +1,20 @@
+node_modules/
+app-icon.png
+
+# Rust / Tauri build artifacts
+target/
+src-tauri/target/
+
+# Tauri gen — Android project committé, binaires exclus
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/build/
+src-tauri/gen/android/local.properties
+
+# Icônes iOS (non ciblé)
+src-tauri/icons/ios/
+src-tauri/icons/android/
+
+# Divers
+.DS_Store
+*.log
