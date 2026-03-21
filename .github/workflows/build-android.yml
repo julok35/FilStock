@@ -86,8 +86,10 @@ jobs:
           if git diff --cached --quiet; then
             echo "gen/android déjà à jour, rien à commiter"
           else
-            git commit -m "ci: sauvegarder config Android générée par tauri android init"
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            git pull --rebase origin "$BRANCH" || true
+            git commit -m "ci: sauvegarder config Android générée par tauri android init [skip ci]"
+            git push origin HEAD:"$BRANCH"
           fi
 
       - name: Build Android APK (debug)
