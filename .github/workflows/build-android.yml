@@ -82,7 +82,7 @@ jobs:
           find src-tauri/gen/android/app/src/main/res -name "*.png" 2>/dev/null | head -20 || echo "(pas de res Android)"
 
       - name: Build Android APK (release, arm64 only)
-        run: npx tauri android build --apk --target aarch64-linux-android
+        run: npx tauri android build --apk --target aarch64
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
