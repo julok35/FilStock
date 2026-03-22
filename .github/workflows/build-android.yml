@@ -44,6 +44,12 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      - name: Initialize Tauri Android project
+        run: npx tauri android init
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
       - name: Generate Tauri icons
         run: |
           # Crée une image source 512x512 valide via Python (pas de dépendance externe)
@@ -67,16 +73,13 @@ jobs:
           PYEOF
 
           # Génère tous les formats d'icônes requis par Tauri (desktop + Android)
+          # Doit tourner APRÈS tauri android init pour que les dossiers mipmap/ existent
           npx tauri icon app-icon.png
 
-          echo "=== Icônes générées ==="
+          echo "=== Icônes desktop générées ==="
           ls -la src-tauri/icons/
-
-      - name: Initialize Tauri Android project
-        run: npx tauri android init
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          echo "=== Icônes Android générées ==="
+          find src-tauri/gen/android/app/src/main/res -name "*.png" 2>/dev/null | head -20 || echo "(pas de res Android)"
 
       - name: Commit gen/android config (première fois uniquement)
         run: |
@@ -92,8 +95,8 @@ jobs:
             git push origin HEAD:"$BRANCH"
           fi
 
-      - name: Build Android APK (debug)
-        run: npx tauri android build --apk --debug
+      - name: Build Android APK (release, arm64 only)
+        run: npx tauri android build --apk --target aarch64-linux-android
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -103,6 +106,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: filstock-android-debug
+          name: filstock-android-arm64
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           retention-days: 14

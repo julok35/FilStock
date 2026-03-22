@@ -620,7 +620,7 @@
 
 <script type="module">
 // ─── VERSION ─────────────────────────────────────────────────────────
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 
 // ─── INIT TAURI STORAGE ───────────────────────────────────────────────
 // Détecte si on tourne dans Tauri (app native) ou dans un navigateur (fallback).
@@ -632,17 +632,17 @@ let _appData = {};
 let _flushScheduled = false;
 
 if (__TAURI_CTX) {
-  const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
   try {
+    const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
     const raw = await readTextFile('filstock_data.json', { baseDir: BaseDirectory.AppData });
     _appData = JSON.parse(raw);
-  } catch { /* première launch : fichier absent, on part des defaults */ }
+  } catch { /* première launch ou FS non disponible */ }
 }
 
 // Écriture différée (debounce 300ms) pour éviter d'écrire à chaque frappe.
 // Fire-and-forget : les mutations JS restent synchrones, la persistance est async.
 async function _doFlush() {
-  if (!__TAURI_CTX) return;
+  if (!__TAURI_CTX || !window.__TAURI__?.fs) return;
   const { writeTextFile, BaseDirectory } = window.__TAURI__.fs;
   await writeTextFile('filstock_data.json', JSON.stringify(_appData), { baseDir: BaseDirectory.AppData });
   _flushScheduled = false;
@@ -1367,7 +1367,7 @@ function showToast(msg) {
 async function exportJSON() {
   const data = { app:'FilStock Julok', version:1, appVersion:APP_VERSION, exportedAt: new Date().toISOString(), spools, supports };
   const json = JSON.stringify(data, null, 2);
-  if (__TAURI_CTX) {
+  if (__TAURI_CTX && window.__TAURI__?.dialog && window.__TAURI__?.fs) {
     const { save: dialogSave } = window.__TAURI__.dialog;
     const { writeTextFile } = window.__TAURI__.fs;
     const path = await dialogSave({
@@ -1448,7 +1448,7 @@ function importJSON(file) {
 
 document.getElementById('exportBtn').addEventListener('click', exportJSON);
 document.getElementById('importBtn').addEventListener('click', async () => {
-  if (__TAURI_CTX) {
+  if (__TAURI_CTX && window.__TAURI__?.dialog && window.__TAURI__?.fs) {
     const { open: dialogOpen } = window.__TAURI__.dialog;
     const { readTextFile } = window.__TAURI__.fs;
     const path = await dialogOpen({ filters: [{ name: 'JSON', extensions: ['json'] }] });
