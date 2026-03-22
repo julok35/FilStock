@@ -100,9 +100,10 @@ jobs:
               '        }\n'
               '    }\n'
           )
+          # Insérer à l'intérieur du bloc android {} (avant sa fermeture })
           content = content.replace(
-              '\napply(from = "tauri.build.gradle.kts")',
-              splits + '\napply(from = "tauri.build.gradle.kts")'
+              '\n}\n\nrust {',
+              splits + '\n}\n\nrust {'
           )
           open(path, 'w').write(content)
           print('ABI splits patch appliqué')
