@@ -5,11 +5,8 @@ app-icon.png
 target/
 src-tauri/target/
 
-# Tauri gen — Android project committé, binaires exclus
-src-tauri/gen/android/.gradle/
-src-tauri/gen/android/app/build/
-src-tauri/gen/android/build/
-src-tauri/gen/android/local.properties
+# Tauri gen — régénéré par tauri android init en CI, jamais commité
+src-tauri/gen/
 
 # Icônes iOS (non ciblé)
 src-tauri/icons/ios/
