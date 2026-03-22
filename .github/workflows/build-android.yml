@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [native-app, "claude/mobile-app-conversion-plan-SYrf1"]
+    branches: [native-app, "claude/mobile-app-conversion-plan-SYrf1", "claude/fix-apk-android-Kf6an"]
   workflow_dispatch: # déclenchement manuel depuis l'onglet Actions de GitHub
 
 jobs:
@@ -99,10 +99,48 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
           CARGO_INCREMENTAL: "0"
 
-      - name: Upload APK artifact
+      - name: Sign APK with debug keystore
+        run: |
+          # Générer un keystore de debug éphémère
+          keytool -genkeypair \
+            -keystore debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -noprompt
+
+          # Trouver tous les APK produits
+          APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
+          echo "=== APK trouvés avant signature ==="
+          find "$APK_DIR" -name "*.apk" | sort
+
+          # Signer chaque APK avec apksigner
+          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner"
+          echo "apksigner : $APKSIGNER"
+
+          find "$APK_DIR" -name "*.apk" | while read APK; do
+            SIGNED="${APK%.apk}-signed.apk"
+            "$APKSIGNER" sign \
+              --ks debug.keystore \
+              --ks-key-alias androiddebugkey \
+              --ks-pass pass:android \
+              --key-pass pass:android \
+              --out "$SIGNED" \
+              "$APK"
+            echo "Signé : $SIGNED"
+          done
+
+          echo "=== APK signés ==="
+          find "$APK_DIR" -name "*-signed.apk" | sort
+
+      - name: Upload APK signé
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: filstock-android-debug
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          name: filstock-android-debug-signed
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*-signed.apk
           retention-days: 14
