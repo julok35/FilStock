@@ -78,50 +78,6 @@ jobs:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
-      - name: Patch build.gradle.kts — ABI splits
-        # tauri android init peut régénérer build.gradle.kts sans la config splits.
-        # Ce step supprime d'abord tout splits{} errant (hors android{}), puis
-        # insère correctement à l'intérieur du bloc android{} si absent.
-        run: |
-          python3 - <<'PYEOF'
-          import re, sys
-          path = 'src-tauri/gen/android/app/build.gradle.kts'
-          content = open(path).read()
-
-          # Supprimer tout bloc splits{} flottant HORS du bloc android{}
-          # (pattern : splits suivi d'un bloc imbriqué, hors indentation android)
-          content = re.sub(
-              r'\n\n    splits \{[^}]*\{[^}]*\}[^}]*\}\n(?=\napply)',
-              '\n',
-              content
-          )
-
-          # Vérifier si splits est déjà correctement à l'intérieur de android{}
-          android_block = re.search(r'android \{(.+?)\n\}', content, re.DOTALL)
-          if android_block and 'splits {' in android_block.group(1):
-              print('ABI splits déjà configurés dans android{}')
-              open(path, 'w').write(content)
-              sys.exit(0)
-
-          splits = (
-              '    splits {\n'
-              '        abi {\n'
-              '            isEnable = true\n'
-              '            reset()\n'
-              '            include("arm64-v8a", "armeabi-v7a")\n'
-              '            isUniversalApk = false\n'
-              '        }\n'
-              '    }\n'
-          )
-          # Insérer à l'intérieur du bloc android{} avant sa fermeture (}\n\nrust{)
-          content = content.replace(
-              '\n}\n\nrust {',
-              '\n' + splits + '\n}\n\nrust {'
-          )
-          open(path, 'w').write(content)
-          print('ABI splits patch appliqué dans android{}')
-          PYEOF
-
       - name: Commit gen/android config (première fois uniquement)
         run: |
           git config user.name "github-actions[bot]"
@@ -180,18 +136,10 @@ jobs:
           echo "=== APK signés ==="
           find "$APK_DIR" -name "*-signed.apk" | sort
 
-      - name: Upload APK arm64 signé (téléphones modernes)
+      - name: Upload APK signé
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: filstock-arm64-signed
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*arm64*-signed.apk
-          retention-days: 14
-
-      - name: Upload APK arm32 signé (anciens téléphones)
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: filstock-arm32-signed
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*armeabi*-signed.apk
+          name: filstock-apk-signed
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*-signed.apk
           retention-days: 14
