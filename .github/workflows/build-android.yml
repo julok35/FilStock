@@ -83,25 +83,23 @@ jobs:
         # Ce step l'applique (ou la ré-applique) après init, avant le build.
         run: |
           python3 - <<'PYEOF'
-          import re, sys
+          import sys
           path = 'src-tauri/gen/android/app/build.gradle.kts'
           content = open(path).read()
           if 'splits {' in content:
               print('ABI splits déjà configurés')
               sys.exit(0)
-          splits = """
-    // Produit un APK léger par architecture (arm64 ~3 Mo, armeabi-v7a ~2.5 Mo)
-    // au lieu d'un universal (~10 Mo embarquant les 4 ABI)
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = false
-        }
-    }
-"""
-          # Insérer juste avant apply(from = "tauri.build.gradle.kts")
+          splits = (
+              '\n'
+              '    splits {\n'
+              '        abi {\n'
+              '            isEnable = true\n'
+              '            reset()\n'
+              '            include("arm64-v8a", "armeabi-v7a")\n'
+              '            isUniversalApk = false\n'
+              '        }\n'
+              '    }\n'
+          )
           content = content.replace(
               '\napply(from = "tauri.build.gradle.kts")',
               splits + '\napply(from = "tauri.build.gradle.kts")'
