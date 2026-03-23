@@ -620,7 +620,7 @@
 
 <script type="module">
 // ─── VERSION ─────────────────────────────────────────────────────────
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 
 // ─── INIT TAURI STORAGE ───────────────────────────────────────────────
 // Détecte si on tourne dans Tauri (app native) ou dans un navigateur (fallback).
@@ -632,8 +632,8 @@ let _appData = {};
 let _flushScheduled = false;
 
 if (__TAURI_CTX) {
-  const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
   try {
+    const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
     const raw = await readTextFile('filstock_data.json', { baseDir: BaseDirectory.AppData });
     _appData = JSON.parse(raw);
   } catch { /* première launch : fichier absent, on part des defaults */ }
