@@ -1,146 +1,81 @@
-name: Build Android APK
+name: Build app (Flutter)
 
 on:
   push:
-    branches: [native-app, "claude/mobile-app-conversion-plan-SYrf1", "claude/fix-apk-android-Kf6an"]
+    branches: [main, native-app, "claude/**"]
   workflow_dispatch: # déclenchement manuel depuis l'onglet Actions de GitHub
 
+# Variables partagées par tous les jobs
+env:
+  FLUTTER_VERSION: "3.27.1"
+  # Exécute les actions JS (checkout/setup-java/upload-artifact) sur Node.js 24.
+  # Évite l'avertissement de dépréciation de Node.js 20 (forcé dès le 16/06/2026).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
+  # ── Analyse statique + tests (rapide, sur Linux) ──────────────────────
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  # ── Build APK Android ────────────────────────────────────────────────
   build-android:
+    needs: analyze
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
+      contents: write # nécessaire pour publier l'APK dans une release
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK
-        run: |
-          sdkmanager --install "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
-
-      - name: Setup Rust stable
-        uses: dtolnay/rust-toolchain@stable
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # APK release signé avec la clé debug (installable directement pour tester).
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: '22'
-
-      - name: Install npm dependencies
-        run: npm install
-
-      - name: Generate Tauri icons
-        run: |
-          # Crée une image source 512x512 valide via Python (pas de dépendance externe)
-          python3 - <<'PYEOF'
-          import struct, zlib, os
-
-          def make_png(w, h, r=33, g=150, b=243):
-              def chunk(tag, data):
-                  crc = zlib.crc32(tag + data) & 0xFFFFFFFF
-                  return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
-              raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
-              return (b'\x89PNG\r\n\x1a\n'
-                      + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-                      + chunk(b'IDAT', zlib.compress(raw, 9))
-                      + chunk(b'IEND', b''))
-
-          os.makedirs('src-tauri/icons', exist_ok=True)
-          with open('app-icon.png', 'wb') as f:
-              f.write(make_png(512, 512))
-          print('Source icon app-icon.png created (512x512)')
-          PYEOF
-
-          # Génère tous les formats d'icônes requis par Tauri (desktop + Android)
-          npx tauri icon app-icon.png
-
-          echo "=== Icônes générées ==="
-          ls -la src-tauri/icons/
-
-      - name: Initialize Tauri Android project
-        run: npx tauri android init
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-
-      - name: Commit gen/android config (première fois uniquement)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src-tauri/gen/android/
-          if git diff --cached --quiet; then
-            echo "gen/android déjà à jour, rien à commiter"
-          else
-            BRANCH="${GITHUB_REF#refs/heads/}"
-            git pull --rebase origin "$BRANCH" || true
-            git commit -m "ci: sauvegarder config Android générée par tauri android init [skip ci]"
-            git push origin HEAD:"$BRANCH"
-          fi
-
-      - name: Build Android APK (debug)
-        run: npx tauri android build --apk --debug
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-          CARGO_INCREMENTAL: "0"
-
-      - name: Sign APK with debug keystore
-        run: |
-          # Générer un keystore de debug éphémère
-          keytool -genkeypair \
-            -keystore debug.keystore \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" \
-            -noprompt
-
-          # Trouver tous les APK produits
-          APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
-          echo "=== APK trouvés avant signature ==="
-          find "$APK_DIR" -name "*.apk" | sort
-
-          # Signer chaque APK avec apksigner
-          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)/apksigner"
-          echo "apksigner : $APKSIGNER"
-
-          find "$APK_DIR" -name "*.apk" | while read APK; do
-            SIGNED="${APK%.apk}-signed.apk"
-            "$APKSIGNER" sign \
-              --ks debug.keystore \
-              --ks-key-alias androiddebugkey \
-              --ks-pass pass:android \
-              --key-pass pass:android \
-              --out "$SIGNED" \
-              "$APK"
-            echo "Signé : $SIGNED"
-          done
-
-          echo "=== APK signés ==="
-          find "$APK_DIR" -name "*-signed.apk" | sort
-
-      - name: Upload APK signé
-        if: success()
-        uses: actions/upload-artifact@v4
+          name: filstock-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+      # Publie l'APK dans une release « rolling » → lien direct, installable
+      # depuis le téléphone : .../releases/download/android-latest/app-release.apk
+      - name: Publier l'APK (release android-latest)
+        uses: softprops/action-gh-release@v2
         with:
-          name: filstock-android-debug-signed
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*-signed.apk
-          retention-days: 14
+          tag_name: android-latest
+          name: FilStock — dernier APK Android (test)
+          body: |
+            APK de test construit automatiquement par la CI.
+            Signé avec la clé debug — autoriser « sources inconnues » à l'installation.
+          files: build/app/outputs/flutter-apk/app-release.apk
+          make_latest: true
+
+  # ── Build iOS (sans signature) — vérifie la compatibilité Apple ───────
+  build-ios:
+    needs: analyze
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # --no-codesign : build de validation, pas de certificat Apple requis.
+      - run: flutter build ios --release --no-codesign

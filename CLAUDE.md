@@ -1,72 +1,66 @@
-# CLAUDE.md — FilStock Native (Tauri v2)
+# CLAUDE.md — FilStock (Flutter)
 
-Ce fichier fournit les instructions à Claude Code pour travailler sur la version **application native** de FilStock (branche `native-app`).
+Ce fichier guide Claude Code pour travailler sur la version **application native Flutter** de FilStock (Android + iOS).
 
-> La version navigateur originale (branche `main`) est documentée dans `CLAUDE.web.md`.
+> L'ancienne version navigateur (HTML/CSS/JS) reste disponible à titre de référence : `index.html` + `CLAUDE.web.md`. L'ancienne tentative Tauri a été remplacée par ce projet Flutter.
 
 ## Stack technique
 
 | Composant | Technologie |
 |-----------|-------------|
-| Framework natif | **Tauri v2** (Windows + Android) |
-| Frontend | HTML / CSS / JS vanilla (WebView) |
-| Backend | Rust (minimal — délégation de persistance) |
-| Stockage | `filstock_data.json` dans `AppData` |
-| Plugins | `@tauri-apps/plugin-fs`, `@tauri-apps/plugin-dialog` |
+| Framework | **Flutter** (Dart) — Android + iOS (web pour tests) |
+| Gestion d'état | `provider` (`ChangeNotifier`) |
+| Stockage | Fichier JSON unique `filstock_data.json` dans le dossier documents de l'app (`path_provider`) |
+| Export | `share_plus` (partage du fichier JSON) |
+| Import | `file_picker` (sélection d'un `.json`) |
 
-## Prérequis système
+## Prérequis
 
 ```bash
-# Rust (obligatoire)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup update
+# Flutter (canal stable, >= 3.27)
+flutter --version
 
-# Node.js 18+ (pour tauri-cli)
-node --version
-
-# Android (pour la cible Android uniquement)
-# → Android SDK avec NDK, Java 17, ANDROID_HOME défini
-# → android target Rust : rustup target add aarch64-linux-android
+# Android : SDK + Java 17
+# iOS : Xcode (macOS uniquement)
 ```
 
 ## Développement
 
 ```bash
-npm install           # installer tauri-cli + plugins JS
-npm run dev           # lancer en mode développement (fenêtre desktop)
-npm run build         # build Windows (.exe / .msi)
-npm run android       # build Android (.apk)
+flutter pub get            # dépendances
+flutter run                # lance sur l'appareil/émulateur connecté
+flutter analyze            # analyse statique (doit être propre)
+flutter test               # tests unitaires
+flutter build apk --release        # APK Android
+flutter build ios --release --no-codesign   # build iOS (validation)
+flutter build web                  # vérification rapide de compilation
 ```
 
-## Architecture du projet
+## Architecture
 
 ```
-FilStock/
-├── index.html              ← version navigateur (inchangée, branche main)
-├── src/
-│   └── index.html          ← version Tauri (frontend adapté)
-├── src-tauri/
-│   ├── src/
-│   │   ├── main.rs         ← entry point Windows
-│   │   └── lib.rs          ← entry point Android + plugins init
-│   ├── build.rs
-│   ├── capabilities/
-│   │   └── default.json    ← permissions FS + dialog
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── package.json
-├── CLAUDE.md               ← ce fichier (native)
-└── CLAUDE.web.md           ← instructions version navigateur
+lib/
+├── main.dart                 ← bootstrap : Provider + MaterialApp (thème depuis le store)
+└── src/
+    ├── models.dart           ← Spool, Support, JournalEntry, FilamentColor, UiSettings (toJson/fromJson)
+    ├── constants.dart        ← kBaseColors, kBaseMaterials, kTraits, libellés, kAppVersion
+    ├── theme.dart            ← ThemeTokens (palette dark/light) + styles de tags
+    ├── utils.dart            ← couleurs, codes, formatage (qtyToGrams, timeAgo…)
+    ├── storage.dart          ← lecture/écriture du fichier JSON
+    ├── store.dart            ← AppStore (ChangeNotifier) : état + persistance + règles métier
+    └── ui/
+        ├── home_screen.dart  ← écran principal (header, filtres, tri, stats, vues, export/import)
+        ├── spool_views.dart  ← SpoolCard, SpoolGroupCard, SpoolListRow, en-têtes de groupe
+        ├── spool_form.dart   ← feuille d'ajout/édition de bobine
+        ├── settings_panel.dart ← réglages (échelles, supports, matières/couleurs custom)
+        ├── journal_panel.dart  ← journal d'activité (filtres + diff)
+        └── widgets.dart      ← Pastille, Tag, QtyBar, badges, toast
 ```
 
-## Modèle de données — fichier JSON
+## Modèle de données — `filstock_data.json`
 
-Toutes les données sont stockées dans un seul fichier `filstock_data.json` dans le répertoire AppData de l'OS :
+Format **identique** à la version web/Tauri (clés `id`, `brand`, `colorName`, `qty` 0-100, etc.) pour que l'import des anciens fichiers fonctionne :
 
-- Windows : `%APPDATA%\com.filstock.app\filstock_data.json`
-- Android : `/data/data/com.filstock.app/files/filstock_data.json`
-
-**Structure du fichier :**
 ```json
 {
   "spools": [...],
@@ -75,7 +69,7 @@ Toutes les données sont stockées dans un seul fichier `filstock_data.json` dan
   "customMaterials": [...],
   "codeCounters": { "PLA-NOIR": 3 },
   "journal": [...],
-  "lastModified": "2026-03-12T...",
+  "lastModified": "2026-...",
   "theme": "dark",
   "groupMode": "material+color",
   "sortMode": "default",
@@ -83,129 +77,38 @@ Toutes les données sont stockées dans un seul fichier `filstock_data.json` dan
 }
 ```
 
-## APIs Tauri — accès sans bundler
+**Bobine :** `{ id, brand, material, colorName, color(hex), qty(0-100), pack, loc, type, traits[], code, supportId, notes, createdAt, lastModified }`
 
-`withGlobalTauri: true` dans `tauri.conf.json` expose les plugins sur `window.__TAURI__` :
+## Règles permanentes
 
-```js
-// FS
-const { readTextFile, writeTextFile, BaseDirectory } = window.__TAURI__.fs;
+### Persistance
+Toute mutation passe par une méthode de `AppStore`, qui appelle `_persist()` (notifyListeners + écriture différée 300 ms via `Storage`). Ne jamais muter l'état hors du store.
 
-// Dialog
-const { save, open } = window.__TAURI__.dialog;
-```
+### Thème — zéro couleur hardcodée
+Toutes les couleurs des widgets viennent de `ThemeTokens` (`tokens.bg`, `tokens.text`, `tokens.accent`, `tokens.border`, etc.) ou des helpers de `theme.dart`. Hiérarchie des fonds : `bg` (page) < `bg2` (cartes) < `bg3` (inputs, boutons internes). Un bouton dans une carte utilise `bg3`, jamais `bg2`.
 
-**Ne jamais utiliser** `import('@tauri-apps/plugin-fs')` — sans bundler, la résolution npm des package names échoue dans la WebView.
+### Versioning
+Avant chaque commit avec changement visible, incrémenter `kAppVersion` dans `lib/src/constants.dart` :
+- **Patch** (corrections, ajustements) : `3.0` → `3.1`
+- **Feature** (nouvelle fonctionnalité) : `3.1` → `4.0`
 
-## Fonctions globales (type="module")
+Garder `version:` dans `pubspec.yaml` cohérent.
 
-Le script principal est `type="module"`. Toutes les fonctions appelées depuis les `onclick="..."` du HTML doivent être exposées via `Object.assign(window, { ... })` à la fin du script (voir bloc "EXPOSITION GLOBALE" dans `src/index.html`).
+### Responsive
+Utiliser `Wrap` / `SingleChildScrollView` pour tout conteneur multi-éléments. Tester en largeur ≤ 360px. La grille de cartes s'adapte via `LayoutBuilder` (2 colonnes minimum).
 
-## Règle de persistance — OBLIGATOIRE
+## CI — GitHub Actions
 
-Chaque mutation de données doit :
-1. Mettre à jour la variable JS en mémoire
-2. Mettre à jour `_appData.X` (mirror in-memory du fichier)
-3. Appeler `_flushToDisk()` (écriture différée 300ms, fire-and-forget)
-4. Conserver le `localStorage.setItem(...)` existant (fallback navigateur)
-
-**Exemple :**
-```js
-// Correct
-function save() {
-  localStorage.setItem('filstock_v1', JSON.stringify(spools));
-  _appData.spools = spools;
-  _flushToDisk();
-}
-```
-
-## Versioning
-
-Avant chaque commit apportant une modification visible dans l'app, incrémenter `APP_VERSION` dans `src/index.html` :
-- **Patch** (corrections, ajustements visuels) : bump du sous-numéro (ex. `2.0` → `2.1`)
-- **Feature** (nouvelle fonctionnalité) : bump du numéro principal (ex. `2.1` → `3.0`)
-
-## Thème sombre/clair — zéro couleur hardcodée
-
-Toutes les couleurs dans les règles CSS doivent utiliser des tokens CSS (`var(--bg)`, `var(--text)`, `var(--accent)`, `var(--border)`, etc.).
-
-**Interdit :** hex codes, `rgb()`, `rgba()` avec des valeurs absolues dans les sélecteurs de composants.
-
-## Responsive mobile — zéro débordement dans les conteneurs flex/grid
-
-`flex-wrap: wrap` obligatoire sur tout conteneur multi-éléments. Breakpoints `@media (max-width: 600px)` pour les modals et grilles.
-
-## Hiérarchie visuelle des tokens — boutons toujours distinguables
-
-Les boutons dans les cartes/lignes doivent utiliser `--bg3` comme fond — jamais `--bg2`.
-
-## CI GitHub Actions — règles obligatoires
-
-### Icônes Tauri — ne jamais commiter des PNG générés manuellement
-
-`tauri::generate_context!()` est une proc macro Rust qui **ouvre et décode** chaque fichier listé dans `bundle.icon` de `tauri.conf.json` au moment de la compilation. Un PNG trop petit ou mal formé provoque :
-
-```
-error: proc macro panicked — failed to open icon …/icons/icon.png: No such file or directory
-```
-
-**Règle :** les icônes doivent être **générées en CI** via `npx tauri icon`, jamais commitées manuellement. Le workflow génère une image source valide par Python, puis appelle `tauri icon` pour produire tous les formats.
-
-```yaml
-- name: Generate Tauri icons
-  run: |
-    python3 - <<'PYEOF'
-    import struct, zlib, os
-    def make_png(w, h, r=33, g=150, b=243):
-        def chunk(tag, data):
-            crc = zlib.crc32(tag + data) & 0xFFFFFFFF
-            return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
-        raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
-        return (b'\x89PNG\r\n\x1a\n'
-                + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-                + chunk(b'IDAT', zlib.compress(raw, 9))
-                + chunk(b'IEND', b''))
-    os.makedirs('src-tauri/icons', exist_ok=True)
-    open('app-icon.png', 'wb').write(make_png(512, 512))
-    PYEOF
-    npx tauri icon app-icon.png
-```
-
-**`tauri.conf.json` doit lister les formats standards** (ceux que `tauri icon` génère) :
-
-```json
-"icon": [
-  "icons/32x32.png",
-  "icons/128x128.png",
-  "icons/128x128@2x.png",
-  "icons/icon.icns",
-  "icons/icon.ico"
-]
-```
-
-### Script `tauri` dans `package.json` — obligatoire
-
-Gradle (`rustBuildArm64Debug`) appelle `npm run tauri` pendant la compilation Rust Android. Sans ce script, le build échoue avec `npm error Missing script: "tauri"`.
-
-**`package.json` doit toujours contenir :**
-
-```json
-"scripts": {
-  "tauri": "tauri",
-  "dev": "tauri dev",
-  "build": "tauri build",
-  "android": "tauri android build"
-}
-```
-
-### Cache Rust dans CI — désactivé jusqu'au premier build réussi
-
-`Swatinem/rust-cache` peut restaurer un état partiel issu d'un run raté, ce qui fausse les compilations suivantes. Ne pas l'activer tant qu'un premier build complet n'a pas réussi.
+`.github/workflows/build-android.yml` :
+1. `analyze` (Linux) : `flutter analyze` + `flutter test`
+2. `build-android` (Linux) : `flutter build apk --release` → artefact `filstock-android-apk`
+3. `build-ios` (macOS) : `flutter build ios --release --no-codesign`
 
 ## Checklist avant chaque commit
 
-1. `npm run dev` → vérifier que l'app démarre sans erreur
-2. Ajouter une bobine → quitter → relancer → vérifier que la bobine est présente
-3. Tester thème clair et sombre : boutons visibles dans les cartes
-4. Tester export/import via dialog natif (si modifié)
-5. Bumper `APP_VERSION` si changement visible
+1. `flutter analyze` → aucun problème
+2. `flutter test` → vert
+3. Ajouter une bobine → relancer → vérifier qu'elle persiste
+4. Tester thème clair **et** sombre (boutons visibles dans les cartes)
+5. Tester export (partage) et import (fusion/remplacement)
+6. Bumper `kAppVersion` si changement visible
