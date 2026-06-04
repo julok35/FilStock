@@ -1,7 +1,7 @@
 import 'models.dart';
 
 /// Version applicative affichée dans l'UI (voir règle de versioning du projet).
-const String kAppVersion = '3.0';
+const String kAppVersion = '3.1';
 
 /// Couleurs de base — identiques à la version web (utilisées aussi pour
 /// retrouver un nom canonique via la couleur la plus proche).
