@@ -11,42 +11,41 @@ FilStock by Julok is a small app for managing an inventory of plastic filament s
 
 Ouvrir `index.html` directement dans n'importe quel navigateur moderne. Aucune installation requise. Les données sont stockées dans `localStorage`.
 
-## Version application native Windows + Android (branche `native-app`)
+## Application native Android + iOS (Flutter)
 
-Application de bureau Windows et mobile Android construite avec **Tauri v2**.
-Les données sont stockées dans un fichier JSON local (`filstock_data.json`).
+Application mobile construite avec **Flutter** (Dart). Toutes les fonctionnalités de la
+version web sont conservées : bobines, supports, couleurs/matières personnalisées,
+codes uniques, journal d'activité, thème clair/sombre, groupement & tri, export/import JSON.
+
+Les données sont stockées dans un fichier JSON local (`filstock_data.json`) dans le
+dossier documents de l'application. Le format est compatible avec les exports de la
+version web, donc l'import des anciennes données fonctionne directement.
 
 ### Prérequis
 
-- [Rust](https://rustup.rs/) (via `rustup`)
-- Node.js 18+
-- Pour Android : Android SDK, NDK, Java 17, `ANDROID_HOME` défini
-
-### Installation
-
-```bash
-npm install
-```
+- [Flutter](https://docs.flutter.dev/get-started/install) (canal stable, ≥ 3.27)
+- Android : Android SDK + Java 17
+- iOS : Xcode (macOS uniquement)
 
 ### Développement
 
 ```bash
-npm run dev       # ouvre la fenêtre desktop en mode développement
+flutter pub get      # installer les dépendances
+flutter run          # lancer sur l'appareil / l'émulateur connecté
+flutter analyze      # analyse statique
+flutter test         # tests unitaires
 ```
 
 ### Build
 
 ```bash
-npm run build     # génère le .exe / .msi Windows
-                  # → src-tauri/target/release/
+flutter build apk --release                 # APK Android
+#   → build/app/outputs/flutter-apk/app-release.apk
 
-npm run android   # génère le .apk Android
-                  # → src-tauri/gen/android/app/build/outputs/apk/
+flutter build appbundle --release           # AAB (Google Play)
+
+flutter build ios --release --no-codesign   # build iOS (validation sans certificat)
 ```
 
-### Localisation des données
-
-| OS | Chemin |
-|----|--------|
-| Windows | `%APPDATA%\com.filstock.app\filstock_data.json` |
-| Android | `/data/data/com.filstock.app/files/filstock_data.json` |
+L'APK est aussi construit automatiquement en CI (onglet **Actions** → artefact
+`filstock-android-apk`).
