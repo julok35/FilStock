@@ -6,10 +6,27 @@ on:
   workflow_dispatch: # déclenchement manuel depuis l'onglet Actions de GitHub
 
 jobs:
-  build-android:
+  # Tests (logique métier + smoke test jsdom) — bloque le build APK si rouge
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install npm dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run tests
+        run: npm test
+
+  build-android:
+    needs: test
+    runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -42,7 +59,7 @@ jobs:
           node-version: '22'
 
       - name: Install npm dependencies
-        run: npm install
+        run: npm ci --no-audit --no-fund
 
       - name: Generate Tauri icons
         run: |
@@ -69,28 +86,12 @@ jobs:
           # Génère tous les formats d'icônes requis par Tauri (desktop + Android)
           npx tauri icon app-icon.png
 
-          echo "=== Icônes générées ==="
-          ls -la src-tauri/icons/
-
-      - name: Initialize Tauri Android project
-        run: npx tauri android init
+      # gen/android est commité dans le repo ; init uniquement s'il manque
+      - name: Initialize Tauri Android project (si absent)
+        run: test -d src-tauri/gen/android || npx tauri android init
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-
-      - name: Commit gen/android config (première fois uniquement)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src-tauri/gen/android/
-          if git diff --cached --quiet; then
-            echo "gen/android déjà à jour, rien à commiter"
-          else
-            BRANCH="${GITHUB_REF#refs/heads/}"
-            git pull --rebase origin "$BRANCH" || true
-            git commit -m "ci: sauvegarder config Android générée par tauri android init [skip ci]"
-            git push origin HEAD:"$BRANCH"
-          fi
 
       - name: Build Android APK (debug)
         run: npx tauri android build --apk --debug
@@ -99,19 +100,37 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
           CARGO_INCREMENTAL: "0"
 
-      - name: Sign APK with debug keystore
+      # Signature : utilise le keystore persistant du secret ANDROID_KEYSTORE_BASE64
+      # s'il existe (signature stable → les mises à jour s'installent par-dessus
+      # l'ancienne version sans désinstaller). Sinon, keystore éphémère.
+      #
+      # Pour créer le secret (une seule fois, sur votre machine) :
+      #   keytool -genkeypair -keystore filstock.keystore -alias androiddebugkey \
+      #     -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android \
+      #     -dname "CN=FilStock,O=Julok,C=FR" -noprompt
+      #   base64 -w0 filstock.keystore   → coller le résultat dans
+      #   Settings → Secrets and variables → Actions → ANDROID_KEYSTORE_BASE64
+      - name: Sign APK
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          # Générer un keystore de debug éphémère
-          keytool -genkeypair \
-            -keystore debug.keystore \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" \
-            -noprompt
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Keystore persistant fourni via secret — signature stable"
+            echo "$KEYSTORE_B64" | base64 -d > debug.keystore
+          else
+            echo "::warning::Pas de secret ANDROID_KEYSTORE_BASE64 — keystore éphémère :"
+            echo "::warning::chaque APK aura une signature différente (désinstallation requise pour mettre à jour)."
+            keytool -genkeypair \
+              -keystore debug.keystore \
+              -alias androiddebugkey \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass android \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -noprompt
+          fi
 
           # Trouver tous les APK produits
           APK_DIR="src-tauri/gen/android/app/build/outputs/apk"

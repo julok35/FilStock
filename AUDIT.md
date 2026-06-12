@@ -3,6 +3,15 @@
 Audit réalisé le 12/06/2026 sur `src/index.html` (1 860 lignes — tout le frontend),
 `src-tauri/` (coque Rust minimale) et le workflow CI `build-android.yml`.
 
+> **STATUT — appliqué en v4.0 (12/06/2026).** L'intégralité des recommandations
+> ci-dessous a été implémentée : correctifs P0 (dialogues, re-seed, flush,
+> keystore), ergonomie tactile P1, découpage en modules + store + suppression du
+> fallback localStorage (P2), optimisations de rendu, tokens couleur, police
+> embarquée et champ `weight` (P3). Tests : `npm test` (32 tests, unitaires +
+> smoke jsdom). Seule action restante côté utilisateur : créer le secret GitHub
+> `ANDROID_KEYSTORE_BASE64` (procédure commentée dans le workflow) pour une
+> signature APK stable.
+
 Verdict global : le code est propre, lisible, bien commenté et le modèle de données
 est sain. Les vrais problèmes sont concentrés sur **trois bugs critiques pour
 Android** et sur l'architecture mono-fichier qui freinera l'évolution.

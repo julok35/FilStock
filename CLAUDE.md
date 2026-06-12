@@ -9,10 +9,11 @@ Ce fichier fournit les instructions à Claude Code pour travailler sur l'applica
 | Composant | Technologie |
 |-----------|-------------|
 | Framework natif | **Tauri v2** (cible : Android ; desktop en dev uniquement) |
-| Frontend | HTML / CSS / JS vanilla (WebView) |
+| Frontend | HTML / CSS / JS vanilla en modules ES (WebView, sans bundler) |
 | Backend | Rust (minimal — délégation de persistance) |
 | Stockage | `filstock_data.json` dans `AppData` |
 | Plugins | `@tauri-apps/plugin-fs`, `@tauri-apps/plugin-dialog` |
+| Tests | `node --test` natif + jsdom (smoke test) |
 
 ## Prérequis système
 
@@ -32,9 +33,9 @@ node --version
 ## Développement
 
 ```bash
-npm install           # installer tauri-cli + plugins JS
+npm install           # installer tauri-cli + plugins JS + jsdom (tests)
+npm test              # tests unitaires + smoke test jsdom (rapide, sans Rust)
 npm run dev           # lancer en mode développement (fenêtre desktop)
-npm run build         # build Windows (.exe / .msi)
 npm run android       # build Android (.apk)
 ```
 
@@ -43,38 +44,52 @@ npm run android       # build Android (.apk)
 ```
 FilStock/
 ├── src/
-│   └── index.html          ← frontend complet (CSS + HTML + JS)
-├── src-tauri/
-│   ├── src/
-│   │   ├── main.rs         ← entry point desktop (dev)
-│   │   └── lib.rs          ← entry point Android + plugins init
-│   ├── build.rs
-│   ├── capabilities/
-│   │   └── default.json    ← permissions FS + dialog
-│   ├── Cargo.toml
-│   └── tauri.conf.json
+│   ├── index.html          ← shell HTML statique uniquement (aucun JS inline)
+│   ├── styles.css          ← tous les styles (tokens de thème en tête)
+│   ├── fonts/              ← Baloo 2 embarquée (zéro dépendance réseau)
+│   └── js/
+│       ├── app.js          ← point d'entrée : chargement état, wiring, 1er rendu
+│       ├── constants.js    ← APP_VERSION, couleurs/matières de base, traits, icônes
+│       ├── utils.js        ← helpers purs (esc, couleurs, grammes…)
+│       ├── store.js        ← état unique `state` + persistance (persist/flushNow)
+│       ├── logic.js        ← logique métier PURE (codes, imports, groupes, diffs)
+│       ├── render.js       ← rendu cartes/liste/stats
+│       ├── ui.js           ← modal bobine, panneaux réglages & journal, import/export
+│       ├── journal.js      ← journal des modifications
+│       ├── dialogs.js      ← askConfirm/askChoice (confirm() natif INTERDIT)
+│       └── overlays.js     ← historique + bouton retour Android
+├── tests/
+│   ├── logic.test.mjs      ← tests unitaires de logic.js / utils.js
+│   └── smoke.test.mjs      ← démarre l'app dans jsdom, parcours principaux
+├── src-tauri/              ← coque Rust (main.rs desktop dev, lib.rs Android)
 ├── package.json
 ├── AUDIT.md                ← audit de code (perf / modularité / ergonomie)
 └── CLAUDE.md               ← ce fichier
 ```
 
+**Pas de bundler** : les imports ES **relatifs** (`./logic.js`) fonctionnent dans la
+WebView ; seuls les noms de packages npm (`import '@tauri-apps/...'`) échouent.
+Les APIs Tauri s'utilisent via `window.__TAURI__.fs` / `window.__TAURI__.dialog`
+(`withGlobalTauri: true`).
+
 ## Modèle de données — fichier JSON
 
-Toutes les données sont stockées dans un seul fichier `filstock_data.json` dans le répertoire AppData de l'OS :
+Toutes les données sont stockées dans un seul fichier `filstock_data.json` (AppData) :
 
-- Windows : `%APPDATA%\com.filstock.app\filstock_data.json`
 - Android : `/data/data/com.filstock.app/files/filstock_data.json`
+- Desktop dev : `%APPDATA%\com.filstock.app\filstock_data.json`
 
-**Structure du fichier :**
 ```json
 {
-  "spools": [...],
+  "appVersion": "4.0",
+  "initialized": true,
+  "spools": [{ "...": "...", "weight": 1000 }],
   "supports": [...],
   "customColors": [...],
   "customMaterials": [...],
   "codeCounters": { "PLA-NOIR": 3 },
   "journal": [...],
-  "lastModified": "2026-03-12T...",
+  "lastModified": "2026-06-12T...",
   "theme": "dark",
   "groupMode": "material+color",
   "sortMode": "default",
@@ -82,61 +97,86 @@ Toutes les données sont stockées dans un seul fichier `filstock_data.json` dan
 }
 ```
 
-## APIs Tauri — accès sans bundler
-
-`withGlobalTauri: true` dans `tauri.conf.json` expose les plugins sur `window.__TAURI__` :
-
-```js
-// FS
-const { readTextFile, writeTextFile, BaseDirectory } = window.__TAURI__.fs;
-
-// Dialog
-const { save, open } = window.__TAURI__.dialog;
-```
-
-**Ne jamais utiliser** `import('@tauri-apps/plugin-fs')` — sans bundler, la résolution npm des package names échoue dans la WebView.
-
-## Fonctions globales (type="module")
-
-Le script principal est `type="module"`. Toutes les fonctions appelées depuis les `onclick="..."` du HTML doivent être exposées via `Object.assign(window, { ... })` à la fin du script (voir bloc "EXPOSITION GLOBALE" dans `src/index.html`).
+- `initialized` : posé au premier lancement — **ne jamais re-seeder les données de
+  démo** si l'utilisateur a vidé son inventaire.
+- `weight` : capacité de la bobine en grammes (défaut 1000). Tout calcul de
+  grammes passe par `spoolGrams(s)` / `groupTotals()` — jamais `qty * 10` en dur.
+- `localStorage` n'est **plus écrit** (lecture one-shot de migration uniquement,
+  dans `store.js`).
 
 ## Règle de persistance — OBLIGATOIRE
 
-Chaque mutation de données doit :
-1. Mettre à jour la variable JS en mémoire
-2. Mettre à jour `_appData.X` (mirror in-memory du fichier)
-3. Appeler `_flushToDisk()` (écriture différée 300ms, fire-and-forget)
-4. Conserver le `localStorage.setItem(...)` existant (fallback navigateur)
+Toute mutation de données passe par l'objet `state` (store.js) puis :
 
-**Exemple :**
 ```js
-// Correct
-function save() {
-  localStorage.setItem('filstock_v1', JSON.stringify(spools));
-  _appData.spools = spools;
-  _flushToDisk();
-}
+import { state, persist } from './store.js';
+state.spools.push(spool);   // 1. muter state
+persist();                  // 2. planifier l'écriture (debounce 300ms, durcie)
+render();                   // 3. re-rendre si l'affichage change
 ```
+
+`persist()` gère : debounce, ré-écriture si mutation pendant un flush, flush
+immédiat sur `visibilitychange` (Android tue les apps en arrière-plan), écriture
+atomique tmp + rename.
+
+## Dialogues — confirm()/alert() INTERDITS
+
+`confirm()` et `alert()` ne fonctionnent **pas** dans la WebView Tauri (retour
+falsy silencieux, surtout Android). Utiliser `dialogs.js` :
+
+```js
+import { askConfirm, askChoice, showAlert } from './dialogs.js';
+if (await askConfirm('Supprimer ?', { ok: 'Supprimer', danger: true })) { ... }
+```
+
+## Événements — délégation, jamais d'onclick inline
+
+Aucun `onclick="..."` dans le HTML ni dans les templates générés. Les éléments
+dynamiques portent des `data-*` (`data-spool-id`, `data-del-color`…) et les
+listeners sont délégués dans `ui.js` / `app.js`. Ne jamais interpoler de
+données utilisateur dans du code JS inline.
 
 ## Versioning
 
-Avant chaque commit apportant une modification visible dans l'app, incrémenter `APP_VERSION` dans `src/index.html` :
-- **Patch** (corrections, ajustements visuels) : bump du sous-numéro (ex. `2.0` → `2.1`)
-- **Feature** (nouvelle fonctionnalité) : bump du numéro principal (ex. `2.1` → `3.0`)
+Avant chaque commit apportant une modification visible dans l'app, incrémenter
+`APP_VERSION` dans `src/js/constants.js` :
+- **Patch** (corrections, ajustements visuels) : bump du sous-numéro (ex. `4.0` → `4.1`)
+- **Feature** (nouvelle fonctionnalité) : bump du numéro principal (ex. `4.1` → `5.0`)
 
 ## Thème sombre/clair — zéro couleur hardcodée
 
-Toutes les couleurs dans les règles CSS doivent utiliser des tokens CSS (`var(--bg)`, `var(--text)`, `var(--accent)`, `var(--border)`, etc.).
+Toutes les couleurs dans les règles CSS doivent utiliser des tokens définis en
+tête de `styles.css` (`var(--bg)`, `var(--tag-vacuum-bg)`, `var(--sup-ht-fg)`…).
 
-**Interdit :** hex codes, `rgb()`, `rgba()` avec des valeurs absolues dans les sélecteurs de composants.
+**Interdit :** hex codes, `rgb()`, `rgba()` avec des valeurs absolues dans les
+sélecteurs de composants. (Exception : les couleurs de `TRAITS` dans
+`constants.js` sont des données, pas du style.)
 
-## Responsive mobile — zéro débordement dans les conteneurs flex/grid
+## Responsive mobile & tactile
 
-`flex-wrap: wrap` obligatoire sur tout conteneur multi-éléments. Breakpoints `@media (max-width: 600px)` pour les modals et grilles.
+- `flex-wrap: wrap` obligatoire sur tout conteneur multi-éléments ;
+  breakpoints `@media (max-width: 600px)` pour modals et grilles.
+- **Pas d'interaction accessible uniquement au `:hover`** : tout ce qui est
+  révélé au survol doit avoir un équivalent tactile (cf. `@media (hover: none)`).
+- Le bouton retour Android doit fermer l'overlay ouvert, pas l'app
+  (géré par `overlays.js` — utiliser `overlayShown()`/`overlayHidden()` pour
+  tout nouvel overlay).
 
 ## Hiérarchie visuelle des tokens — boutons toujours distinguables
 
 Les boutons dans les cartes/lignes doivent utiliser `--bg3` comme fond — jamais `--bg2`.
+
+## Tests — obligatoires avant commit
+
+```bash
+npm test    # 5 secondes, sans toolchain Rust
+```
+
+- Toute nouvelle logique métier va dans `logic.js`/`utils.js` (purs, testables)
+  avec un test dans `tests/logic.test.mjs`.
+- Tout nouveau parcours UI important s'ajoute à `tests/smoke.test.mjs`.
+- La CI exécute `npm test` AVANT le build APK (~25 min) : un test rouge
+  économise un build perdu.
 
 ## CI GitHub Actions — règles obligatoires
 
@@ -148,27 +188,7 @@ Les boutons dans les cartes/lignes doivent utiliser `--bg3` comme fond — jamai
 error: proc macro panicked — failed to open icon …/icons/icon.png: No such file or directory
 ```
 
-**Règle :** les icônes doivent être **générées en CI** via `npx tauri icon`, jamais commitées manuellement. Le workflow génère une image source valide par Python, puis appelle `tauri icon` pour produire tous les formats.
-
-```yaml
-- name: Generate Tauri icons
-  run: |
-    python3 - <<'PYEOF'
-    import struct, zlib, os
-    def make_png(w, h, r=33, g=150, b=243):
-        def chunk(tag, data):
-            crc = zlib.crc32(tag + data) & 0xFFFFFFFF
-            return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
-        raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
-        return (b'\x89PNG\r\n\x1a\n'
-                + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-                + chunk(b'IDAT', zlib.compress(raw, 9))
-                + chunk(b'IEND', b''))
-    os.makedirs('src-tauri/icons', exist_ok=True)
-    open('app-icon.png', 'wb').write(make_png(512, 512))
-    PYEOF
-    npx tauri icon app-icon.png
-```
+**Règle :** les icônes doivent être **générées en CI** via `npx tauri icon`, jamais commitées manuellement (le workflow génère une image source par Python puis appelle `tauri icon`).
 
 **`tauri.conf.json` doit lister les formats standards** (ceux que `tauri icon` génère) :
 
@@ -186,16 +206,12 @@ error: proc macro panicked — failed to open icon …/icons/icon.png: No such f
 
 Gradle (`rustBuildArm64Debug`) appelle `npm run tauri` pendant la compilation Rust Android. Sans ce script, le build échoue avec `npm error Missing script: "tauri"`.
 
-**`package.json` doit toujours contenir :**
+### Signature APK — keystore persistant
 
-```json
-"scripts": {
-  "tauri": "tauri",
-  "dev": "tauri dev",
-  "build": "tauri build",
-  "android": "tauri android build"
-}
-```
+Le secret GitHub `ANDROID_KEYSTORE_BASE64` fournit un keystore stable (les mises
+à jour s'installent par-dessus l'ancienne version). Sans le secret, le workflow
+retombe sur un keystore éphémère et émet un warning. Ne pas supprimer ce
+mécanisme.
 
 ### Cache Rust dans CI — désactivé jusqu'au premier build réussi
 
@@ -203,8 +219,9 @@ Gradle (`rustBuildArm64Debug`) appelle `npm run tauri` pendant la compilation Ru
 
 ## Checklist avant chaque commit
 
-1. `npm run dev` → vérifier que l'app démarre sans erreur
-2. Ajouter une bobine → quitter → relancer → vérifier que la bobine est présente
-3. Tester thème clair et sombre : boutons visibles dans les cartes
-4. Tester export/import via dialog natif (si modifié)
-5. Bumper `APP_VERSION` si changement visible
+1. `npm test` → tout vert
+2. `npm run dev` → vérifier que l'app démarre sans erreur
+3. Ajouter une bobine → quitter → relancer → vérifier que la bobine est présente
+4. Tester thème clair et sombre : boutons visibles dans les cartes
+5. Tester export/import via dialog natif (si modifié)
+6. Bumper `APP_VERSION` (src/js/constants.js) si changement visible

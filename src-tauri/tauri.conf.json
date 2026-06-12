@@ -1,6 +1,6 @@
 {
   "productName": "FilStock",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "identifier": "com.filstock.app",
   "build": {
     "frontendDist": "../src"

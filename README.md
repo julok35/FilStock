@@ -30,6 +30,7 @@ npm install
 ### Développement
 
 ```bash
+npm test          # tests unitaires + smoke test (rapide, sans toolchain Rust)
 npm run dev       # ouvre une fenêtre desktop en mode développement
                   # (sert uniquement à tester l'app sans émulateur Android)
 ```

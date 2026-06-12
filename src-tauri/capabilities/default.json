@@ -7,6 +7,8 @@
     "core:default",
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write-recursive",
+    "fs:allow-rename",
+    "fs:scope-appdata-recursive",
     "dialog:allow-open",
     "dialog:allow-save"
   ]
