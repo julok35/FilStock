@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [native-app, "claude/mobile-app-conversion-plan-SYrf1", "claude/fix-apk-android-Kf6an"]
+    branches: [main]
   workflow_dispatch: # déclenchement manuel depuis l'onglet Actions de GitHub
 
 jobs:

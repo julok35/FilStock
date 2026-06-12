@@ -1,14 +1,14 @@
 # CLAUDE.md — FilStock Native (Tauri v2)
 
-Ce fichier fournit les instructions à Claude Code pour travailler sur la version **application native** de FilStock (branche `native-app`).
+Ce fichier fournit les instructions à Claude Code pour travailler sur l'application native FilStock.
 
-> La version navigateur originale (branche `main`) est documentée dans `CLAUDE.web.md`.
+> La version navigateur historique (`index.html` à la racine + `CLAUDE.web.md`) a été **supprimée** — seule l'app Android est maintenue. La fenêtre desktop (`npm run dev`) ne sert que d'environnement de test.
 
 ## Stack technique
 
 | Composant | Technologie |
 |-----------|-------------|
-| Framework natif | **Tauri v2** (Windows + Android) |
+| Framework natif | **Tauri v2** (cible : Android ; desktop en dev uniquement) |
 | Frontend | HTML / CSS / JS vanilla (WebView) |
 | Backend | Rust (minimal — délégation de persistance) |
 | Stockage | `filstock_data.json` dans `AppData` |
@@ -42,12 +42,11 @@ npm run android       # build Android (.apk)
 
 ```
 FilStock/
-├── index.html              ← version navigateur (inchangée, branche main)
 ├── src/
-│   └── index.html          ← version Tauri (frontend adapté)
+│   └── index.html          ← frontend complet (CSS + HTML + JS)
 ├── src-tauri/
 │   ├── src/
-│   │   ├── main.rs         ← entry point Windows
+│   │   ├── main.rs         ← entry point desktop (dev)
 │   │   └── lib.rs          ← entry point Android + plugins init
 │   ├── build.rs
 │   ├── capabilities/
@@ -55,8 +54,8 @@ FilStock/
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 ├── package.json
-├── CLAUDE.md               ← ce fichier (native)
-└── CLAUDE.web.md           ← instructions version navigateur
+├── AUDIT.md                ← audit de code (perf / modularité / ergonomie)
+└── CLAUDE.md               ← ce fichier
 ```
 
 ## Modèle de données — fichier JSON
