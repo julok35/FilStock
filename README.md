@@ -7,14 +7,13 @@ FilStock by Julok is a small app for managing an inventory of plastic filament s
 
 ---
 
-## Version navigateur (branche `main`)
+## Application Android (Tauri v2)
 
-Ouvrir `index.html` directement dans n'importe quel navigateur moderne. Aucune installation requise. Les données sont stockées dans `localStorage`.
-
-## Version application native Windows + Android (branche `native-app`)
-
-Application de bureau Windows et mobile Android construite avec **Tauri v2**.
+Application mobile Android construite avec **Tauri v2** (frontend HTML/CSS/JS dans `src/`, coque native Rust dans `src-tauri/`).
 Les données sont stockées dans un fichier JSON local (`filstock_data.json`).
+
+> L'ancienne version navigateur (`index.html` à la racine) a été supprimée.
+> Elle reste disponible dans l'historique git si besoin.
 
 ### Prérequis
 
@@ -31,22 +30,25 @@ npm install
 ### Développement
 
 ```bash
-npm run dev       # ouvre la fenêtre desktop en mode développement
+npm test          # tests unitaires + smoke test (rapide, sans toolchain Rust)
+npm run dev       # ouvre une fenêtre desktop en mode développement
+                  # (sert uniquement à tester l'app sans émulateur Android)
 ```
 
 ### Build
 
 ```bash
-npm run build     # génère le .exe / .msi Windows
-                  # → src-tauri/target/release/
-
 npm run android   # génère le .apk Android
                   # → src-tauri/gen/android/app/build/outputs/apk/
 ```
+
+Le build Android est aussi produit automatiquement par GitHub Actions
+(workflow **Build Android APK**) : l'APK debug signé est disponible dans
+les artefacts du run.
 
 ### Localisation des données
 
 | OS | Chemin |
 |----|--------|
-| Windows | `%APPDATA%\com.filstock.app\filstock_data.json` |
 | Android | `/data/data/com.filstock.app/files/filstock_data.json` |
+| Desktop (mode dev) | `%APPDATA%\com.filstock.app\filstock_data.json` |
